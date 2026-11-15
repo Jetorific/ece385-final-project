@@ -1,0 +1,49 @@
+# Ignore everything, but allow directory traversal
+*
+!*/
+!.gitignore
+!IP/**
+
+# HDL sources and headers
+!*.v
+!*.sv
+!*.vh
+!*.svh
+!*.vhd
+!*.vhdl
+
+# Timing and physical constraints
+!*.xdc
+
+# Vivado project, block designs, and IP configuration
+!*.xpr
+!*.bd
+!*.xci
+
+# Project creation/build scripts
+!*.tcl
+
+# Memory/coefficient inputs, if used
+!*.coe
+!*.mem
+
+# Zip files
+!*.zip
+
+# C files
+!*.c
+!*.h
+
+# Repository documentation
+!README.md
+!LICENSE
+
+# Exclude generated trees even when they contain allowed extensions.
+# Keep these exclusions AFTER the allowlist above.
+*.runs/
+*.cache/
+*.gen/
+*.ip_user_files/
+*.sim/
+*.hw/
+.Xil/
