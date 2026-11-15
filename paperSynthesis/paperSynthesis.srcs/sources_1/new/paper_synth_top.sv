@@ -49,23 +49,30 @@ module paper_synth_top(
     output logic [3:0] hex_gridB
 );
     
-    logic [31:0] keycode0_gpio, keycode1_gpio;
+//    logic [31:0] keycode0_gpio, keycode1_gpio;
     logic clk_25MHz, clk_125MHz, clk, clk_100MHz;
     logic locked;
     logic [9:0] drawX, drawY;
 
     logic hsync, vsync, vde;
-    logic [3:0] red, green, blue;
+    logic [11:0] rgb;
     logic reset_ah;
     
     assign reset_ah = reset_rtl_0;
     
+    always_comb begin
+        if (drawX[4] ^ drawY[4])
+            rgb = 12'hF60;
+        else
+            rgb = 12'h135;
+    end
     
     //Keycode HEX drivers
     hex_driver HexA (
         .clk(Clk),
         .reset(reset_ah),
-        .in({keycode0_gpio[31:28], keycode0_gpio[27:24], keycode0_gpio[23:20], keycode0_gpio[19:16]}),
+//        .in({keycode0_gpio[31:28], keycode0_gpio[27:24], keycode0_gpio[23:20], keycode0_gpio[19:16]}),
+        .in({4'hE, 4'hC, 4'hE, 4'hB}),
         .hex_seg(hex_segA),
         .hex_grid(hex_gridA)
     );
@@ -73,7 +80,8 @@ module paper_synth_top(
     hex_driver HexB (
         .clk(Clk),
         .reset(reset_ah),
-        .in({keycode0_gpio[15:12], keycode0_gpio[11:8], keycode0_gpio[7:4], keycode0_gpio[3:0]}),
+//        .in({keycode0_gpio[15:12], keycode0_gpio[11:8], keycode0_gpio[7:4], keycode0_gpio[3:0]}),
+        .in({4'hB, 4'hE, 4'hC, 4'hE}),
         .hex_seg(hex_segB),
         .hex_grid(hex_gridB)
     );
@@ -81,8 +89,8 @@ module paper_synth_top(
     mb_block mb_block_i (
         .clk_100MHz(Clk),
         .gpio_usb_int_tri_i(gpio_usb_int_tri_i),
-        .gpio_usb_keycode_0_tri_o(keycode0_gpio),
-        .gpio_usb_keycode_1_tri_o(keycode1_gpio),
+//        .gpio_usb_keycode_0_tri_o(keycode0_gpio),
+//        .gpio_usb_keycode_1_tri_o(keycode1_gpio),
         .gpio_usb_rst_tri_o(gpio_usb_rst_tri_o),
         .reset_rtl_0(~reset_ah), //Block designs expect active low reset, all other modules are active high
         .uart_rtl_0_rxd(uart_rtl_0_rxd),
@@ -121,9 +129,9 @@ module paper_synth_top(
         .pix_clk_locked(locked),
         .rst(reset_ah),
         //Color and Sync Signals
-        .red(red),
-        .green(green),
-        .blue(blue),
+        .red(rgb[11:8]),
+        .green(rgb[7:4]),
+        .blue(rgb[3:0]),
         .hsync(hsync),
         .vsync(vsync),
         .vde(vde),
