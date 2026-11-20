@@ -149,7 +149,8 @@ int main() {
 				xil_printf("Velocity: ");
 				xil_printf("%x\n", MIDIbuf[3]);
 
-				printMIDI(MIDIbuf[0] + (MIDIbuf[1] << 8) + (MIDIbuf[2] << 16) + (MIDIbuf[3] << 24));
+				// velocity, note, status, idk
+				printMIDI((MIDIbuf[3] << 24) + (MIDIbuf[2] << 16) + (MIDIbuf[1] << 8) + MIDIbuf[0]);
 			}
 		} else if (GetUsbTaskState() == USB_STATE_ERROR) {
 			if (!errorflag) {

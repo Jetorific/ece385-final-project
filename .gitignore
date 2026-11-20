@@ -3,6 +3,7 @@
 !*/
 !.gitignore
 !IP/**
+!scripts/**
 
 # HDL sources and headers
 !*.v

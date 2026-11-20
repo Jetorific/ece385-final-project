@@ -60,7 +60,7 @@ module paper_synth_top(
     logic [15:0] audio_sig;
     
 //    logic [31:0] keycode0_gpio, keycode1_gpio;
-    logic clk_25MHz, clk_125MHz, clk_6MHz, clk_3MHz;
+    logic clk_25MHz, clk_125MHz, clk_24MHz, clk_12MHz, clk_6MHz, clk_3MHz;
     logic locked;
     logic [9:0] drawX, drawY;
     logic [31:0] ch0, ch1;
@@ -118,19 +118,24 @@ module paper_synth_top(
     clk_wiz_0 clk_wiz (
         .clk_out1(clk_25MHz),
         .clk_out2(clk_125MHz),
-        .clk_out3(clk_6MHz), // Intended to be around 6.144MHz, actually 6.14754MHz.
+        .clk_out3(clk_24MHz), // Intended to be around 6.144MHz, actually 6.14754MHz.
         .reset(reset_ah),
         .locked(locked),
         .clk_in1(Clk)
     );
     
     // Simple 1/2 frequency divider
-    always_ff @(posedge clk_6MHz or posedge reset_ah) begin
+    logic [2:0] clk_count;
+    always_ff @(posedge clk_24MHz or posedge reset_ah) begin
         if (reset_ah)
-            clk_3MHz <= 1'b0;
+            clk_count <= 3'b0;
         else
-            clk_3MHz <= ~clk_3MHz;
+            clk_count <= clk_count + 3'b1;
     end
+    
+    assign clk_12MHz = clk_count[0];
+    assign clk_6MHz = clk_count[1];
+    assign clk_3MHz = clk_count[2];
     
     oscillators osc (
         .Clk(Clk),
@@ -138,6 +143,7 @@ module paper_synth_top(
         .sample_en(sample_en),
         .reset(reset_ah),
         .sw(sw_i),
+        .midi_data(midi_data),
         
         .audio_sig(audio_sig)
     );
@@ -146,7 +152,7 @@ module paper_synth_top(
     assign ch1 = ch0;
     
     audio_interface audio (
-        .bck(clk_3MHz),
+        .bck(sw_i[15] ? (sw_i[14] ? clk_24MHz : clk_12MHz) : (sw_i[14] ? clk_6MHz : clk_3MHz)), // Choosing 6MHz instead of the generated 3MHz gets a 96kHz sample rate
         .reset(reset_ah),
         .ch0(ch0), // Left channel
         .ch1(ch1), // Right channel

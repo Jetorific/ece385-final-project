@@ -25,3 +25,24 @@ platform config -updatehw {X:/Xilinx/VivadoProjects/final-project/paperSynthesis
 platform generate -domains 
 platform clean
 platform generate
+platform clean
+platform config -updatehw {X:/Xilinx/VivadoProjects/final-project/paperSynthesis/paper_synth_top.xsa}
+platform generate
+platform clean
+platform config -updatehw {X:/Xilinx/VivadoProjects/final-project/paperSynthesis/paper_synth_top.xsa}
+platform generate
+platform clean
+platform generate
+platform clean
+platform generate
+platform clean
+platform config -updatehw {X:/Xilinx/VivadoProjects/final-project/paperSynthesis/paper_synth_top.xsa}
+platform generate
+platform clean
+platform generate
+platform clean
+platform generate
+platform clean
+platform config -updatehw {X:/Xilinx/VivadoProjects/final-project/paperSynthesis/paper_synth_top.xsa}
+platform clean
+platform generate
