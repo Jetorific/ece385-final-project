@@ -24,7 +24,7 @@ module paper_synth_top(
     input logic Clk,
     input logic reset_rtl_0,
     
-    //USB signals
+    // USB signals
     input logic [0:0] gpio_usb_int_tri_i,
     output logic gpio_usb_rst_tri_o,
     input logic usb_spi_miso,
@@ -32,25 +32,30 @@ module paper_synth_top(
     output logic usb_spi_sclk,
     output logic usb_spi_ss,
     
-    //UART
+    // UART
     input logic uart_rtl_0_rxd,
     output logic uart_rtl_0_txd,
     
-    //HDMI
+    // HDMI
     output logic hdmi_tmds_clk_n,
     output logic hdmi_tmds_clk_p,
     output logic [2:0]hdmi_tmds_data_n,
     output logic [2:0]hdmi_tmds_data_p,
         
-    //HEX displays
+    // HEX displays
     output logic [7:0] hex_segA,
     output logic [3:0] hex_gridA,
     output logic [7:0] hex_segB,
-    output logic [3:0] hex_gridB
+    output logic [3:0] hex_gridB,
+    
+    // I2S outputs
+    output logic S_BCK,
+    output logic S_DIN,
+    output logic S_LRCK
 );
     
 //    logic [31:0] keycode0_gpio, keycode1_gpio;
-    logic clk_25MHz, clk_125MHz, clk, clk_100MHz;
+    logic clk_25MHz, clk_125MHz, clk_6MHz, clk_3MHz;
     logic locked;
     logic [9:0] drawX, drawY;
 
@@ -101,13 +106,41 @@ module paper_synth_top(
         .usb_spi_ss(usb_spi_ss)
     );
         
-    //clock wizard configured with a 1x and 5x clock for HDMI
+    //clock wizard configured with a 1x and 5x clock for HDMI. Also generating sample clock for audio interface.
     clk_wiz_0 clk_wiz (
         .clk_out1(clk_25MHz),
         .clk_out2(clk_125MHz),
+        .clk_out3(clk_6MHz), // Intended to be around 6.144MHz, actually 6.14754MHz.
         .reset(reset_ah),
         .locked(locked),
         .clk_in1(Clk)
+    );
+    
+    // Simple 1/2 frequency divider
+    always_ff @(posedge clk_6MHz or posedge reset_ah) begin
+        if (reset_ah)
+            clk_3MHz <= 1'b0;
+        else
+            clk_3MHz <= ~clk_3MHz;
+    end
+    
+    logic [31:0] audio_sig;
+    always_ff @(posedge clk_3MHz or posedge reset_ah) begin
+        if (reset_ah)
+            audio_sig = 32'b0;
+        else
+            audio_sig = audio_sig + (32'b1 << 17);
+    end
+    
+    audio_interface audio (
+        .bck(clk_3MHz),
+        .reset(reset_ah),
+        .ch0(audio_sig), // Left channel
+        .ch1(audio_sig), // Right channel
+        
+        .S_BCK(S_BCK),
+        .S_DIN(S_DIN),
+        .S_LRCK(S_LRCK)
     );
     
     //VGA Sync signal generator
