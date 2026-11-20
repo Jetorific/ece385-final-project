@@ -2,6 +2,7 @@
 #define _transfer_c_
 
 #include "project_config.h"
+#include "MIDI.h"
 #include <xtmrctr.h>
 #include <xil_printf.h>
 
@@ -62,6 +63,11 @@ CLASS_CALLBACK_TABLE ClientDriverTable[ USB_NUMCLASSES ] = {
     	DummyProbe,
     	DummyEventHandler,
     	0
+    },
+    {
+        MIDIProbe,
+        MIDIEventHandler,
+        0
     }
 };
 /* Control transfer stages function pointer table */
@@ -152,7 +158,7 @@ BYTE XferDispatchPkt( BYTE token, BYTE ep )
  BYTE nak_count = 0;
 
     while( 1 ) {
-        MAXreg_wr( rHXFR, ( token|ep ));            //launch the transfer
+        MAXreg_wr( rHXFR, ( token|endpoint_number ));            //launch the transfer
         rcode = 0xff;
         while( (XTmrCtr_GetValue(&Usb_timer, 0)/TICKS_PER_MILLIS) < timeout ) {
             tmpdata = MAXreg_rd( rHIRQ );
@@ -190,18 +196,20 @@ BYTE XferDispatchPkt( BYTE token, BYTE ep )
 }
 /* IN transfer to arbitrary endpoint. Assumes PERADDR is set. Handles multiple packets if necessary. Transfers 'nbytes' bytes.
     Keep sending INs and writes data to memory area pointed by 'data' */
+/* ep_index selects the EP_RECORD; its epAddr supplies the USB endpoint number. */
 /* rcode 0 if no errors. rcode 01-0f is relayed from prvXferDispatchPkt(). Rcode f0 means RCVDAVIRQ error,
             fe USB xfer timeout */
-BYTE XferInTransfer( BYTE addr/* not sure if it's necessary */, BYTE ep, WORD nbytes, BYTE* data, BYTE maxpktsize )
+BYTE XferInTransfer( BYTE addr, BYTE ep_index, WORD nbytes, BYTE* data, BYTE maxpktsize )
 {
  BYTE rcode;
  BYTE i;
  BYTE tmpbyte;
  BYTE pktsize;
+ BYTE endpoint_number = devtable[ addr ].epinfo[ ep_index ].epAddr & 0x0f;
  WORD xfrlen = 0;
-    MAXreg_wr( rHCTL, devtable[ addr ].epinfo[ ep ].rcvToggle );    //set toggle value
+    MAXreg_wr( rHCTL, devtable[ addr ].epinfo[ ep_index ].rcvToggle );    //set toggle value
     while( 1 ) { // use a 'return' to exit this loop
-        rcode = XferDispatchPkt( tokIN, ep );           //IN packet to EP-'endpoint'. Function takes care of NAKS.
+        rcode = XferDispatchPkt( tokIN, endpoint_number ); //use endpoint address from the selected record
         if( rcode ) {
             return( rcode );                            //should be 0, indicating ACK. Else return error code.
         }
@@ -220,10 +228,10 @@ BYTE XferInTransfer( BYTE addr/* not sure if it's necessary */, BYTE ep, WORD nb
         /* 2. 'nbytes' have been transferred.                       */
         if (( pktsize < maxpktsize ) || (xfrlen >= nbytes )) {    // have we transferred 'nbytes' bytes?
             if( MAXreg_rd( rHRSL ) & bmRCVTOGRD ) {                 //save toggle value
-                devtable[ addr ].epinfo[ ep ].rcvToggle = bmRCVTOG1;
+                devtable[ addr ].epinfo[ ep_index ].rcvToggle = bmRCVTOG1;
             }
             else {
-                devtable[ addr ].epinfo[ ep ].rcvToggle = bmRCVTOG0;
+                devtable[ addr ].epinfo[ ep_index ].rcvToggle = bmRCVTOG0;
             }
             return( 0 );
         }
