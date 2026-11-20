@@ -20,7 +20,40 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module paper_synth_top_tb(
-
+module paper_synth_top_tb();
+    logic Clk;
+    logic reset;
+    
+    logic S_BCK;
+    logic S_DIN;
+    logic S_LRCK;
+    
+    paper_synth_top top_level (
+        .Clk(Clk),
+        .reset_rtl_0(reset),
+        .gpio_usb_int_tri_i(1'b0),
+        .usb_spi_miso(1'b0),
+        .uart_rtl_0_rxd(1'b0),
+        
+        .S_BCK(S_BCK),
+        .S_DIN(S_DIN),
+        .S_LRCK(S_LRCK)
     );
+    
+    always #5 Clk = ~Clk;
+    
+    initial begin
+        Clk = 1'b0;
+        reset = 1'b0;
+    end
+    
+    initial begin
+        #5
+        reset = 1'b1;
+        #5
+        reset = 1'b0;
+        #10000000
+        $finish;
+    end
+
 endmodule

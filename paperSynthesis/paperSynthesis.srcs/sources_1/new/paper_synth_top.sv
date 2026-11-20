@@ -76,8 +76,7 @@ module paper_synth_top(
     hex_driver HexA (
         .clk(Clk),
         .reset(reset_ah),
-//        .in({keycode0_gpio[31:28], keycode0_gpio[27:24], keycode0_gpio[23:20], keycode0_gpio[19:16]}),
-        .in({4'hE, 4'hC, 4'hE, 4'hB}),
+        .in({audio_sig[31:28], audio_sig[27:24], audio_sig[23:20], audio_sig[19:16]}),
         .hex_seg(hex_segA),
         .hex_grid(hex_gridA)
     );
@@ -85,8 +84,7 @@ module paper_synth_top(
     hex_driver HexB (
         .clk(Clk),
         .reset(reset_ah),
-//        .in({keycode0_gpio[15:12], keycode0_gpio[11:8], keycode0_gpio[7:4], keycode0_gpio[3:0]}),
-        .in({4'hB, 4'hE, 4'hC, 4'hE}),
+        .in({audio_sig[15:12], audio_sig[11:8], audio_sig[7:4], audio_sig[3:0]}),
         .hex_seg(hex_segB),
         .hex_grid(hex_gridB)
     );
@@ -125,11 +123,24 @@ module paper_synth_top(
     end
     
     logic [31:0] audio_sig;
-    always_ff @(posedge clk_3MHz or posedge reset_ah) begin
-        if (reset_ah)
-            audio_sig = 32'b0;
-        else
-            audio_sig = audio_sig + (32'b1 << 17);
+//    always_ff @(posedge S_LRCK or posedge reset_ah) begin
+//        if (reset_ah)
+//            audio_sig <= 32'b0;
+//        else
+//            audio_sig <= audio_sig + (32'b1 << 24);
+//    end
+    logic [6:0] counter;
+    always_ff @(posedge S_LRCK or posedge reset_ah) begin
+        if (reset_ah) begin
+            audio_sig <= 32'b0;
+            counter <= 7'b0;
+        end else begin
+            counter <= counter + 1;
+            if (counter[6])
+                audio_sig <= 32'h7FFFFFFF;
+            else
+                audio_sig <= 32'h80000000;
+        end
     end
     
     audio_interface audio (
