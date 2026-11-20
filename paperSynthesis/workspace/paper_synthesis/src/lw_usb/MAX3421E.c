@@ -252,7 +252,7 @@ void MAX3421E_init(void) {
 
 /* MAX3421 state change task and interrupt handler */
 void MAX3421E_Task(void) {
-	if (XGpio_DiscreteRead(&Gpio_int, 1) & 0x01 == 0) {
+	if ((XGpio_DiscreteRead(&Gpio_int, 1) & 0x01) == 0) {
 		xil_printf("MAX interrupt\n\r");
 		MaxIntHandler();
 	}

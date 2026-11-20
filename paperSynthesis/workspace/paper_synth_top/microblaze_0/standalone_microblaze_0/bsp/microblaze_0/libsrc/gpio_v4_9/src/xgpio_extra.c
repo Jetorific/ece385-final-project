@@ -115,7 +115,7 @@ void XGpio_DiscreteSet(XGpio * InstancePtr, unsigned Channel, u32 Mask)
 * connecting to the external output ports.
 *
 *****************************************************************************/
-void XGpio_DiscreteClear(XGpio * InstancePtr, unsigned Channel, u32 Mask)
+void Clear(XGpio * InstancePtr, unsigned Channel, u32 Mask)
 {
 	u32 Current;
 	unsigned DataOffset;

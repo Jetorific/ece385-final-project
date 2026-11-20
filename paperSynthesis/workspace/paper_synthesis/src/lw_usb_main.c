@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "lw_usb/MIDI.h"
 #include "platform.h"
 #include "lw_usb/GenericMacros.h"
 #include "lw_usb/GenericTypeDefs.h"
@@ -16,7 +17,7 @@ extern HID_DEVICE hid_device;
 static XGpio Gpio_hex;
 
 static BYTE addr = 1; 				//hard-wired USB address
-const char* const devclasses[] = { " Uninitialized", " HID Keyboard", " HID Mouse", " Mass storage" };
+const char* const devclasses[] = { " Uninitialized", " HID Keyboard", " HID Mouse", " Mass storage", "MIDI Device" };
 
 BYTE GetDriverandReport() {
 	BYTE i;
@@ -69,6 +70,7 @@ int main() {
    	BYTE rcode;
 	BOOT_MOUSE_REPORT buf;		//USB mouse report
 	BOOT_KBD_REPORT kbdbuf;
+	char MIDIbuf[4];
 
 	BYTE runningdebugflag = 0;//flag to dump out a bunch of information when we first get to USB_STATE_RUNNING
 	BYTE errorflag = 0; //flag once we get an error device so we don't keep dumping out state info
@@ -122,6 +124,19 @@ int main() {
 				xil_printf("%d ", (signed char) buf.Ydispl);
 				xil_printf("Buttons: ");
 				xil_printf("%x\n", buf.button);
+			}
+
+			else if (device == 4) {
+				rcode = MIDIPoll(&MIDIbuf);
+				if (rcode == hrNAK) {
+					continue;
+				}
+				xil_printf("Status: ");
+				xil_printf("%x ", MIDIbuf[1]);
+				xil_printf("Note Number: ");
+				xil_printf("%x ", MIDIbuf[2]);
+				xil_printf("Velocity: ");
+				xil_printf("%x\n", MIDIbuf[3]);
 			}
 		} else if (GetUsbTaskState() == USB_STATE_ERROR) {
 			if (!errorflag) {

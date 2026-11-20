@@ -2,6 +2,7 @@
 #define _transfer_c_
 
 #include "project_config.h"
+#include "MIDI.h"
 #include <xtmrctr.h>
 #include <xil_printf.h>
 
@@ -62,6 +63,11 @@ CLASS_CALLBACK_TABLE ClientDriverTable[ USB_NUMCLASSES ] = {
     	DummyProbe,
     	DummyEventHandler,
     	0
+    },
+    {
+        MIDIProbe,
+        MIDIEventHandler,
+        0
     }
 };
 /* Control transfer stages function pointer table */
@@ -152,7 +158,7 @@ BYTE XferDispatchPkt( BYTE token, BYTE ep )
  BYTE nak_count = 0;
 
     while( 1 ) {
-        MAXreg_wr( rHXFR, ( token|ep ));            //launch the transfer
+        MAXreg_wr( rHXFR, ( token|endpoint_number ));            //launch the transfer
         rcode = 0xff;
         while( (XTmrCtr_GetValue(&Usb_timer, 0)/TICKS_PER_MILLIS) < timeout ) {
             tmpdata = MAXreg_rd( rHIRQ );
@@ -190,18 +196,20 @@ BYTE XferDispatchPkt( BYTE token, BYTE ep )
 }
 /* IN transfer to arbitrary endpoint. Assumes PERADDR is set. Handles multiple packets if necessary. Transfers 'nbytes' bytes.
     Keep sending INs and writes data to memory area pointed by 'data' */
+/* ep_index selects the EP_RECORD; its epAddr supplies the USB endpoint number. */
 /* rcode 0 if no errors. rcode 01-0f is relayed from prvXferDispatchPkt(). Rcode f0 means RCVDAVIRQ error,
             fe USB xfer timeout */
-BYTE XferInTransfer( BYTE addr/* not sure if it's necessary */, BYTE ep, WORD nbytes, BYTE* data, BYTE maxpktsize )
+BYTE XferInTransfer( BYTE addr, BYTE ep_index, WORD nbytes, BYTE* data, BYTE maxpktsize )
 {
  BYTE rcode;
  BYTE i;
  BYTE tmpbyte;
  BYTE pktsize;
+ BYTE endpoint_number = devtable[ addr ].epinfo[ ep_index ].epAddr & 0x0f;
  WORD xfrlen = 0;
-    MAXreg_wr( rHCTL, devtable[ addr ].epinfo[ ep ].rcvToggle );    //set toggle value
+    MAXreg_wr( rHCTL, devtable[ addr ].epinfo[ ep_index ].rcvToggle );    //set toggle value
     while( 1 ) { // use a 'return' to exit this loop
-        rcode = XferDispatchPkt( tokIN, ep );           //IN packet to EP-'endpoint'. Function takes care of NAKS.
+        rcode = XferDispatchPkt( tokIN, endpoint_number ); //use endpoint address from the selected record
         if( rcode ) {
             return( rcode );                            //should be 0, indicating ACK. Else return error code.
         }
@@ -220,10 +228,10 @@ BYTE XferInTransfer( BYTE addr/* not sure if it's necessary */, BYTE ep, WORD nb
         /* 2. 'nbytes' have been transferred.                       */
         if (( pktsize < maxpktsize ) || (xfrlen >= nbytes )) {    // have we transferred 'nbytes' bytes?
             if( MAXreg_rd( rHRSL ) & bmRCVTOGRD ) {                 //save toggle value
-                devtable[ addr ].epinfo[ ep ].rcvToggle = bmRCVTOG1;
+                devtable[ addr ].epinfo[ ep_index ].rcvToggle = bmRCVTOG1;
             }
             else {
-                devtable[ addr ].epinfo[ ep ].rcvToggle = bmRCVTOG0;
+                devtable[ addr ].epinfo[ ep_index ].rcvToggle = bmRCVTOG0;
             }
             return( 0 );
         }
@@ -299,7 +307,7 @@ void USB_Task( void )
                     }
                     break;//case( USB_ATTACHED_SUBSTATE_WAIT_RESET_COMPLETE )
                 case( USB_ATTACHED_SUBSTATE_WAIT_SOF ):
-                    if( MAXreg_rd( rHIRQ ) | bmFRAMEIRQ ) {                     //when first SOF received we can continue
+                    if( MAXreg_rd( rHIRQ ) & bmFRAMEIRQ ) {                     //when first SOF received we can continue
                         usb_task_state = USB_ATTACHED_SUBSTATE_GET_DEVICE_DESCRIPTOR_SIZE;
                     }
                     break;//case( USB_ATTACHED_SUBSTATE_WAIT_SOF )
@@ -387,6 +395,85 @@ void USB_Task( void )
             break;
     }//switch( usb_task_state & STATE_MASK )
 }
+
+// #define USB_RX_BAD_ARGUMENT  0xF1
+// #define USB_RX_BAD_LENGTH    0xF2
+// #define USB_RX_NO_DATA_IRQ   0xF0
+
+// BYTE XferInPacket(BYTE addr, BYTE ep_index,
+//                  BYTE *data, WORD capacity,
+//                  WORD *actual_length)
+// {
+//     EP_RECORD *ep;
+//     BYTE ep_number;
+//     BYTE rcode;
+//     BYTE count;
+//     BYTE hrsl;
+
+//     if (actual_length == NULL)
+//         return USB_RX_BAD_ARGUMENT;
+
+//     *actual_length = 0;
+
+//     if (addr > USB_NUMDEVICES ||
+//         devtable[addr].epinfo == NULL ||
+//         data == NULL)
+//         return USB_RX_BAD_ARGUMENT;
+
+//     /* Caller must supply a valid ep_index for this endpoint array. */
+//     ep = &devtable[addr].epinfo[ep_index];
+
+//     if (!(ep->epAddr & 0x80) ||
+//         ep->MaxPktSize == 0 ||
+//         capacity < ep->MaxPktSize)
+//         return USB_RX_BAD_ARGUMENT;
+
+//     ep_number = ep->epAddr & 0x0F;
+
+//     if (ep_number == 0)
+//         return USB_RX_BAD_ARGUMENT;
+
+//     MAXreg_wr(rPERADDR, addr);
+//     MAXreg_wr(rHCTL, ep->rcvToggle);
+
+//     MAXreg_wr(rHIRQ, bmHXFRDNIRQ);
+
+//     rcode = XferDispatchPkt(tokIN, ep_number);
+//     if (rcode != hrSUCCESS)
+//         return rcode;
+
+//     if (!(MAXreg_rd(rHIRQ) & bmRCVDAVIRQ))
+//         return USB_RX_NO_DATA_IRQ;
+
+//     count = MAXreg_rd(rRCVBC);
+
+//     if (count > capacity || count > ep->MaxPktSize) {
+//         /*
+//          * Unexpected controller/device state:
+//          * release this packet, retain the current toggle state,
+//          * and report an error instead of overflowing the buffer.
+//          */
+//         MAXreg_wr(rHIRQ, bmRCVDAVIRQ);
+
+//         hrsl = MAXreg_rd(rHRSL);
+//         ep->rcvToggle = (hrsl & bmRCVTOGRD)
+//                      ? bmRCVTOG1 : bmRCVTOG0;
+
+//         return USB_RX_BAD_LENGTH;
+//     }
+
+//     if (count != 0)
+//         MAXbytes_rd(rRCVFIFO, count, data);
+
+//     MAXreg_wr(rHIRQ, bmRCVDAVIRQ);
+
+//     hrsl = MAXreg_rd(rHRSL);
+//     ep->rcvToggle = (hrsl & bmRCVTOGRD)
+//                  ? bmRCVTOG1 : bmRCVTOG0;
+
+//     *actual_length = count;
+//     return hrSUCCESS;
+// }
 
 //place-holders for MSD (mass-storage device) drivers, we don't have them ported.
 //returns TRUE if device is successfully identified and configured, otherwise returns FALSE

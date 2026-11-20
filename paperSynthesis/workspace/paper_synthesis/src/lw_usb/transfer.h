@@ -6,11 +6,12 @@
 /* Targeted peripheral list table */
 #define USB_NUMTARGETS  4       //number of targets in TPL, not counting uninitialized device
 #define USB_NUMDEVICES  8       //number of supported devices
-#define USB_NUMCLASSES  4       //number of device classes in class callback table
+#define USB_NUMCLASSES  5       //number of device classes in class callback table
 #define UNINIT          0       //uninitialized
 #define HID_K           1       //HID Keyboard boot driver number in DEV_RECORD
 #define HID_M           2       //HID Mouse boot driver number in DEV_RECORD
 #define MSD             3       //Mass storage class driver number in DEV_RECORD
+#define MIDI_DRIVER		4
 
 /* Standard Device Requests */
 
@@ -225,8 +226,8 @@ BYTE XferCtrlData(BYTE addr, BYTE ep, WORD nbytes, BYTE* dataptr,
 		BOOL direction);
 BYTE XferCtrlND(BYTE addr, BYTE ep, WORD nbytes, BYTE* dataptr, BOOL direction);
 //BYTE startCtrlReq( BYTE addr, BYTE ep, BYTE bmReqType, BYTE bRequest, BYTE wValLo, BYTE wValHi, WORD wInd, WORD nbytes, char* dataptr );
-BYTE XferDispatchPkt(BYTE token, BYTE ep);
-BYTE XferInTransfer(BYTE addr, BYTE ep, WORD nbytes, BYTE* data,
+BYTE XferDispatchPkt(BYTE token, BYTE endpoint_number);
+BYTE XferInTransfer(BYTE addr, BYTE ep_index, WORD nbytes, BYTE* data,
 		BYTE maxpktsize);
 //BYTE XferInTransfer_mps( BYTE ep, char* data, BYTE maxpktsize );
 void USB_init(void);
