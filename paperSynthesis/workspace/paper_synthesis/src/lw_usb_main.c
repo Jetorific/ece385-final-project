@@ -160,7 +160,7 @@ int main() {
 			}
 		} else //not in USB running state
 		{
-
+			printMIDI(0xBADBEEF5);
 			xil_printf("USB task state: ");
 			xil_printf("%x\n", GetUsbTaskState());
 			if (runningdebugflag) {	//previously running, reset USB hardware just to clear out any funky state, HS/FS etc
