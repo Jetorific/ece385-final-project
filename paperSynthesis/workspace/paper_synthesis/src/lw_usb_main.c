@@ -14,7 +14,8 @@
 
 extern HID_DEVICE hid_device;
 
-static XGpio Gpio_hex;
+//static XGpio Gpio_hex;
+static XGpio Gpio_midi;
 
 static BYTE addr = 1; 				//hard-wired USB address
 const char* const devclasses[] = { " Uninitialized", " HID Keyboard", " HID Mouse", " Mass storage", "MIDI Device" };
@@ -55,9 +56,14 @@ BYTE GetDriverandReport() {
 	return device;
 }
 
-void printHex (u32 data, unsigned channel)
+//void printHex (u32 data, unsigned channel)
+//{
+//	XGpio_DiscreteWrite (&Gpio_hex, channel, data);
+//}
+
+void printMIDI (u32 data)
 {
-	XGpio_DiscreteWrite (&Gpio_hex, channel, data);
+	XGpio_DiscreteWrite (&Gpio_midi, 1, data);
 }
 
 int main() {
@@ -68,6 +74,7 @@ int main() {
 //   	XGpio_SetDataDirection(&Gpio_hex, 1, 0x00000000); //configure hex display GPIO
 //   	XGpio_SetDataDirection(&Gpio_hex, 2, 0x00000000); //configure hex display GPIO
 
+    XGpio_Initialize(&Gpio_midi, XPAR_GPIO_MIDI_DEVICE_ID);
 
    	BYTE rcode;
 	BOOT_MOUSE_REPORT buf;		//USB mouse report
@@ -83,7 +90,9 @@ int main() {
 	xil_printf("initializing USB...\n");
 	USB_init();
 	while (1) {
-		xil_printf("."); //A tick here means one loop through the USB main handler
+		//A tick here means one loop through the USB main handler
+		xil_printf(".");
+
 		MAX3421E_Task();
 		USB_Task();
 		if (GetUsbTaskState() == USB_STATE_RUNNING) {
@@ -105,7 +114,7 @@ int main() {
 					xil_printf("%x ", kbdbuf.keycode[i]);
 				}
 				//Outputs the first 4 keycodes using the USB GPIO channel 1
-				printHex (kbdbuf.keycode[0] + (kbdbuf.keycode[1]<<8) + (kbdbuf.keycode[2]<<16) + + (kbdbuf.keycode[3]<<24), 1);
+//				printHex (kbdbuf.keycode[0] + (kbdbuf.keycode[1]<<8) + (kbdbuf.keycode[2]<<16) + + (kbdbuf.keycode[3]<<24), 1);
 				//Modify to output the last 2 keycodes on channel 2.
 				xil_printf("\n");
 			}
@@ -139,6 +148,8 @@ int main() {
 				xil_printf("%x ", MIDIbuf[2]);
 				xil_printf("Velocity: ");
 				xil_printf("%x\n", MIDIbuf[3]);
+
+				printMIDI(MIDIbuf[0] + (MIDIbuf[1] << 8) + (MIDIbuf[2] << 16) + (MIDIbuf[3] << 24));
 			}
 		} else if (GetUsbTaskState() == USB_STATE_ERROR) {
 			if (!errorflag) {

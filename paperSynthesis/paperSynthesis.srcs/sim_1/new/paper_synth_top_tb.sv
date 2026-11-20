@@ -23,6 +23,7 @@
 module paper_synth_top_tb();
     logic Clk;
     logic reset;
+    logic [15:0] sw;
     
     logic S_BCK;
     logic S_DIN;
@@ -31,6 +32,7 @@ module paper_synth_top_tb();
     paper_synth_top top_level (
         .Clk(Clk),
         .reset_rtl_0(reset),
+        .sw_i(sw),
         .gpio_usb_int_tri_i(1'b0),
         .usb_spi_miso(1'b0),
         .uart_rtl_0_rxd(1'b0),
@@ -45,6 +47,7 @@ module paper_synth_top_tb();
     initial begin
         Clk = 1'b0;
         reset = 1'b0;
+        sw = 16'h2;
     end
     
     initial begin

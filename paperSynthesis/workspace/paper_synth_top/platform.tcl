@@ -20,3 +20,8 @@ platform generate -quick
 platform active {paper_synth_top}
 platform config -updatehw {X:/Xilinx/VivadoProjects/final-project/paperSynthesis/paper_synth_top.xsa}
 platform generate
+platform active {paper_synth_top}
+platform config -updatehw {X:/Xilinx/VivadoProjects/final-project/paperSynthesis/paper_synth_top.xsa}
+platform generate -domains 
+platform clean
+platform generate

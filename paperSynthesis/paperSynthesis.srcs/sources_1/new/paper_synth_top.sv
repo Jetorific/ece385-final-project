@@ -23,6 +23,9 @@
 module paper_synth_top(
     input logic Clk,
     input logic reset_rtl_0,
+    input logic [15:0] sw_i,
+    
+    output logic [15:0] led_o,
     
     // USB signals
     input logic [0:0] gpio_usb_int_tri_i,
@@ -53,6 +56,8 @@ module paper_synth_top(
     output logic S_DIN,
     output logic S_LRCK
 );
+    logic [31:0] midi_data;
+    logic [15:0] audio_sig;
     
 //    logic [31:0] keycode0_gpio, keycode1_gpio;
     logic clk_25MHz, clk_125MHz, clk_6MHz, clk_3MHz;
@@ -78,7 +83,7 @@ module paper_synth_top(
     hex_driver HexA (
         .clk(Clk),
         .reset(reset_ah),
-        .in({audio_sig[31:28], audio_sig[27:24], audio_sig[23:20], audio_sig[19:16]}),
+        .in({midi_data[31:28], midi_data[27:24], midi_data[23:20], midi_data[19:16]}),
         .hex_seg(hex_segA),
         .hex_grid(hex_gridA)
     );
@@ -86,10 +91,12 @@ module paper_synth_top(
     hex_driver HexB (
         .clk(Clk),
         .reset(reset_ah),
-        .in({audio_sig[15:12], audio_sig[11:8], audio_sig[7:4], audio_sig[3:0]}),
+        .in({midi_data[15:12], midi_data[11:8], midi_data[7:4], midi_data[3:0]}),
         .hex_seg(hex_segB),
         .hex_grid(hex_gridB)
     );
+    
+    assign led_o = audio_sig;
     
     mb_block mb_block_i (
         .clk_100MHz(Clk),
@@ -103,7 +110,8 @@ module paper_synth_top(
         .usb_spi_miso(usb_spi_miso),
         .usb_spi_mosi(usb_spi_mosi),
         .usb_spi_sclk(usb_spi_sclk),
-        .usb_spi_ss(usb_spi_ss)
+        .usb_spi_ss(usb_spi_ss),
+        .gpio_midi_o_tri_o(midi_data)
     );
         
     //clock wizard configured with a 1x and 5x clock for HDMI. Also generating sample clock for audio interface.
@@ -124,33 +132,18 @@ module paper_synth_top(
             clk_3MHz <= ~clk_3MHz;
     end
     
-    logic [31:0] audio_sig;
-    logic [15:0] counter;
-    always_ff @(negedge S_BCK or posedge reset_ah) begin
-        if (reset_ah)
-            counter <= 32'b0;
-        else if (sample_en)
-            counter <= counter + (16'b1 << 7);
-    end
+    oscillators osc (
+        .Clk(Clk),
+        .bck(S_BCK),
+        .sample_en(sample_en),
+        .reset(reset_ah),
+        .sw(sw_i),
+        
+        .audio_sig(audio_sig)
+    );
     
-    assign audio_sig = {{2{counter[15]}}, counter, 14'b0};
-    
-//    logic [6:0] counter;
-//    always_ff @(posedge sample_en or posedge reset_ah) begin
-//        if (reset_ah) begin
-//            audio_sig <= 32'b0;
-//            counter <= 7'b0;
-//        end else begin
-//            counter <= counter + 1;
-//            if (counter[6])
-//                audio_sig <= 32'h00007FFF;
-//            else
-//                audio_sig <= 32'h00008000;
-//        end
-//    end
-    
-    assign ch0 = audio_sig;
-    assign ch1 = audio_sig;
+    assign ch0 = {{2{audio_sig[15]}}, audio_sig, 14'b0};
+    assign ch1 = ch0;
     
     audio_interface audio (
         .bck(clk_3MHz),
