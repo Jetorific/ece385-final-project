@@ -158,7 +158,7 @@ BYTE XferDispatchPkt( BYTE token, BYTE ep )
  BYTE nak_count = 0;
 
     while( 1 ) {
-        MAXreg_wr( rHXFR, ( token|endpoint_number ));            //launch the transfer
+        MAXreg_wr( rHXFR, ( token| ep ));            //launch the transfer
         rcode = 0xff;
         while( (XTmrCtr_GetValue(&Usb_timer, 0)/TICKS_PER_MILLIS) < timeout ) {
             tmpdata = MAXreg_rd( rHIRQ );

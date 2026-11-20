@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include "lw_usb/MIDI.h"
 #include "platform.h"
 #include "lw_usb/GenericMacros.h"
 #include "lw_usb/GenericTypeDefs.h"
@@ -8,6 +7,7 @@
 #include "lw_usb/usb_ch9.h"
 #include "lw_usb/transfer.h"
 #include "lw_usb/HID.h"
+#include "lw_usb/MIDI.h"
 
 #include "xparameters.h"
 #include <xgpio.h>
@@ -61,10 +61,12 @@ void printHex (u32 data, unsigned channel)
 }
 
 int main() {
+
     init_platform();
-    XGpio_Initialize(&Gpio_hex, XPAR_GPIO_USB_KEYCODE_DEVICE_ID);
-   	XGpio_SetDataDirection(&Gpio_hex, 1, 0x00000000); //configure hex display GPIO
-   	XGpio_SetDataDirection(&Gpio_hex, 2, 0x00000000); //configure hex display GPIO
+    xil_printf("Hello World\n");
+//    XGpio_Initialize(&Gpio_hex, XPAR_GPIO_USB_KEYCODE_DEVICE_ID);
+//   	XGpio_SetDataDirection(&Gpio_hex, 1, 0x00000000); //configure hex display GPIO
+//   	XGpio_SetDataDirection(&Gpio_hex, 2, 0x00000000); //configure hex display GPIO
 
 
    	BYTE rcode;

@@ -73,6 +73,20 @@ void MAXreg_wr(BYTE reg, BYTE val) {
 	//read return code from SPI peripheral (see Xilinx examples) 
 	//if return code != 0 print an error
 	//deselect MAX3421E (may not be necessary if you are using SPI peripheral)
+	BYTE send_buf[2] = {
+		reg | 0x02, 
+		val
+	};
+	BYTE recv_buf[2];
+
+	Status = XSpi_SetSlaveSelect(&SpiInstance, 0x01);
+	if (Status != XST_SUCCESS) {
+		xil_printf("Failed to select slave %d", Status);
+	}
+	Status = XSpi_Transfer(&SpiInstance, send_buf, recv_buf, 2);
+	if (Status != XST_SUCCESS) {
+		xil_printf ("SPI device failed to transfer data %d", Status);
+	}
 }
 
 
@@ -87,6 +101,23 @@ BYTE* MAXbytes_wr(BYTE reg, BYTE nbytes, BYTE* data) {
 	//if return code != 0 print an error
 	//deselect MAX3421E (may not be necessary if you are using SPI peripheral)
 	//return (data + nbytes);
+	BYTE buffer[256];
+	buffer[0] = reg + 2; // Set command byte
+
+	for (int i = 0; i < nbytes; i++) {
+		buffer[i + 1] = data[i];
+	}
+
+	Status = XSpi_SetSlaveSelect(&SpiInstance, 0x01);
+	if (Status != XST_SUCCESS) {
+		xil_printf("Failed to select slave %d", Status);
+	}
+	Status = XSpi_Transfer(&SpiInstance, buffer,  NULL, nbytes + 1);
+	if (Status != XST_SUCCESS) {
+		xil_printf ("SPI device failed to transfer command byte %d", Status);
+	}
+
+	return data + nbytes;
 }
 
 /* Single host register read        */
@@ -99,6 +130,22 @@ BYTE MAXreg_rd(BYTE reg) {
 	//if return code != 0 print an error
 	//deselect MAX3421E (may not be necessary if you are using SPI peripheral)
 	//return val
+	BYTE send_buf[2] = {
+		reg,
+		0x00
+	};
+	BYTE recv_buf[2];
+
+	Status = XSpi_SetSlaveSelect(&SpiInstance, 0x01);
+	if (Status != XST_SUCCESS) {
+		xil_printf("Failed to select slave %d", Status);
+	}
+	Status = XSpi_Transfer(&SpiInstance, send_buf, recv_buf, 2);
+	if (Status != XST_SUCCESS) {
+		xil_printf ("SPI device failed to receive data %d", Status);
+	}
+
+	return recv_buf[1];
 }
 
 
@@ -114,6 +161,26 @@ BYTE* MAXbytes_rd(BYTE reg, BYTE nbytes, BYTE* data) {
 	//if return code != 0 print an error
 	//deselect MAX3421E (may not be necessary if you are using SPI peripheral)
 	//return (data + nbytes);
+
+	BYTE send_buf[256];
+	BYTE recv_buf[256];
+
+	send_buf[0] = reg;
+
+	Status = XSpi_SetSlaveSelect(&SpiInstance, 0x01);
+	if (Status != XST_SUCCESS) {
+		xil_printf("Failed to select slave %d", Status);
+	}
+	Status = XSpi_Transfer(&SpiInstance, send_buf, recv_buf, nbytes + 1);
+	if (Status != XST_SUCCESS) {
+		xil_printf ("SPI device failed to transfer command byte %d", Status);
+	}
+
+	for (int i = 0; i < nbytes; i++) {
+		data[i] = recv_buf[i + 1];
+	}
+
+	return data + nbytes;
 }
 /* reset MAX3421E using chip reset bit. SPI configuration is not affected   */
 void MAX3421E_reset(void) {

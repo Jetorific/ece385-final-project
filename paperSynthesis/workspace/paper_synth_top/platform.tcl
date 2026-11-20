@@ -17,3 +17,6 @@ domain create -name {standalone_microblaze_0} -display-name {standalone_microbla
 platform generate -domains 
 platform active {paper_synth_top}
 platform generate -quick
+platform active {paper_synth_top}
+platform config -updatehw {X:/Xilinx/VivadoProjects/final-project/paperSynthesis/paper_synth_top.xsa}
+platform generate

@@ -10,6 +10,7 @@
 #include "usb_ch9.h"
 #include "transfer.h"
 #include "HID.h"
+#include "MIDI.h"
 
 /* USB constants */
 /* time in milliseconds */
