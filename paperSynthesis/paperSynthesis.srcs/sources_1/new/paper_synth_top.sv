@@ -58,6 +58,8 @@ module paper_synth_top(
     logic clk_25MHz, clk_125MHz, clk_6MHz, clk_3MHz;
     logic locked;
     logic [9:0] drawX, drawY;
+    logic [31:0] ch0, ch1;
+    logic sample_en;
 
     logic hsync, vsync, vde;
     logic [11:0] rgb;
@@ -123,35 +125,43 @@ module paper_synth_top(
     end
     
     logic [31:0] audio_sig;
-//    always_ff @(posedge S_LRCK or posedge reset_ah) begin
-//        if (reset_ah)
-//            audio_sig <= 32'b0;
-//        else
-//            audio_sig <= audio_sig + (32'b1 << 24);
-//    end
-    logic [6:0] counter;
-    always_ff @(posedge S_LRCK or posedge reset_ah) begin
-        if (reset_ah) begin
-            audio_sig <= 32'b0;
-            counter <= 7'b0;
-        end else begin
-            counter <= counter + 1;
-            if (counter[6])
-                audio_sig <= 32'h7FFFFFFF;
-            else
-                audio_sig <= 32'h80000000;
-        end
+    logic [15:0] counter;
+    always_ff @(negedge S_BCK or posedge reset_ah) begin
+        if (reset_ah)
+            counter <= 32'b0;
+        else if (sample_en)
+            counter <= counter + (16'b1 << 7);
     end
+    
+    assign audio_sig = {{2{counter[15]}}, counter, 14'b0};
+    
+//    logic [6:0] counter;
+//    always_ff @(posedge sample_en or posedge reset_ah) begin
+//        if (reset_ah) begin
+//            audio_sig <= 32'b0;
+//            counter <= 7'b0;
+//        end else begin
+//            counter <= counter + 1;
+//            if (counter[6])
+//                audio_sig <= 32'h00007FFF;
+//            else
+//                audio_sig <= 32'h00008000;
+//        end
+//    end
+    
+    assign ch0 = audio_sig;
+    assign ch1 = audio_sig;
     
     audio_interface audio (
         .bck(clk_3MHz),
         .reset(reset_ah),
-        .ch0(audio_sig), // Left channel
-        .ch1(audio_sig), // Right channel
+        .ch0(ch0), // Left channel
+        .ch1(ch1), // Right channel
         
         .S_BCK(S_BCK),
         .S_DIN(S_DIN),
-        .S_LRCK(S_LRCK)
+        .S_LRCK(S_LRCK),
+        .sample_en(sample_en)
     );
     
     //VGA Sync signal generator

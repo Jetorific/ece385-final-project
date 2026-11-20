@@ -23,39 +23,52 @@
 module audio_interface(
     input logic     bck, // Clock input. freq(BCK) = 64 * sample_rate
     input logic     reset,
-    input logic     [31:0] ch0, ch1, // 32-bit audio inputs (left, right)
+    input logic     [31:0] ch0, // 32-bit audio inputs (left, right)
+    input logic     [31:0] ch1, //  ...
     
-    output logic    S_BCK, // Clocks for every bit transfer
-    output logic    S_DIN, // Data input to DAC
-    output logic    S_LRCK // Clocks for each new sample
+    output logic    S_BCK,  // Clocks for every bit transfer
+    output logic    S_DIN,  // Data input to DAC
+    output logic    S_LRCK, // Clocks for each new sample
+    output logic    sample_en
 );
     // Define signals
     logic din;
     logic lrck;
-    logic [4:0] counter;
+    logic [5:0] counter;
+    logic [5:0] next_counter;
+    logic [31:0] ch0_sample;
+    logic [31:0] ch1_sample;
     
     assign S_BCK = bck;
     assign S_DIN = din;
     assign S_LRCK = lrck;
     
-    always_ff @(posedge bck or posedge reset) begin
+    assign next_counter = counter - 1;
+    assign lrck = next_counter[5];
+    
+    always_ff @(negedge bck or posedge reset) begin
         if (reset) begin
             // Reset counter, lrck, and din since we are starting a new "frame"
-            counter <= 5'h1F;
-            lrck <= 1'b0;
-            din <= 1'b0;
+            counter <= 6'd63;
+            ch0_sample <= 32'b0;
+            ch1_sample <= 32'b0;
         end else begin
-            if (~lrck)
-                din <= ch0[counter];
-            else
-                din <= ch1[counter];
+            counter <= next_counter;
             
-            // Switch channel
-            if (counter == 5'h0)
-                lrck <= ~lrck;
-                
-            counter <= counter - 1;
+            if (sample_en) begin
+                ch0_sample <= ch0;
+                ch1_sample <= ch1;
+            end
         end
+    end
+    
+    always_comb begin
+        sample_en = (counter == 32'b0);
+    
+        if (~counter[5])
+            din = ch0_sample[counter[4:0]];
+        else
+            din = ch1_sample[counter[4:0]];
     end
 
 endmodule
