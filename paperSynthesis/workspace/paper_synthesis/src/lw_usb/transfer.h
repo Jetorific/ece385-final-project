@@ -11,6 +11,7 @@
 #define HID_K           1       //HID Keyboard boot driver number in DEV_RECORD
 #define HID_M           2       //HID Mouse boot driver number in DEV_RECORD
 #define MSD             3       //Mass storage class driver number in DEV_RECORD
+#define MIDI_DRIVER		4
 
 /* Standard Device Requests */
 

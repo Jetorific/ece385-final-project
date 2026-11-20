@@ -307,7 +307,7 @@ void USB_Task( void )
                     }
                     break;//case( USB_ATTACHED_SUBSTATE_WAIT_RESET_COMPLETE )
                 case( USB_ATTACHED_SUBSTATE_WAIT_SOF ):
-                    if( MAXreg_rd( rHIRQ ) | bmFRAMEIRQ ) {                     //when first SOF received we can continue
+                    if( MAXreg_rd( rHIRQ ) & bmFRAMEIRQ ) {                     //when first SOF received we can continue
                         usb_task_state = USB_ATTACHED_SUBSTATE_GET_DEVICE_DESCRIPTOR_SIZE;
                     }
                     break;//case( USB_ATTACHED_SUBSTATE_WAIT_SOF )
@@ -395,6 +395,85 @@ void USB_Task( void )
             break;
     }//switch( usb_task_state & STATE_MASK )
 }
+
+// #define USB_RX_BAD_ARGUMENT  0xF1
+// #define USB_RX_BAD_LENGTH    0xF2
+// #define USB_RX_NO_DATA_IRQ   0xF0
+
+// BYTE XferInPacket(BYTE addr, BYTE ep_index,
+//                  BYTE *data, WORD capacity,
+//                  WORD *actual_length)
+// {
+//     EP_RECORD *ep;
+//     BYTE ep_number;
+//     BYTE rcode;
+//     BYTE count;
+//     BYTE hrsl;
+
+//     if (actual_length == NULL)
+//         return USB_RX_BAD_ARGUMENT;
+
+//     *actual_length = 0;
+
+//     if (addr > USB_NUMDEVICES ||
+//         devtable[addr].epinfo == NULL ||
+//         data == NULL)
+//         return USB_RX_BAD_ARGUMENT;
+
+//     /* Caller must supply a valid ep_index for this endpoint array. */
+//     ep = &devtable[addr].epinfo[ep_index];
+
+//     if (!(ep->epAddr & 0x80) ||
+//         ep->MaxPktSize == 0 ||
+//         capacity < ep->MaxPktSize)
+//         return USB_RX_BAD_ARGUMENT;
+
+//     ep_number = ep->epAddr & 0x0F;
+
+//     if (ep_number == 0)
+//         return USB_RX_BAD_ARGUMENT;
+
+//     MAXreg_wr(rPERADDR, addr);
+//     MAXreg_wr(rHCTL, ep->rcvToggle);
+
+//     MAXreg_wr(rHIRQ, bmHXFRDNIRQ);
+
+//     rcode = XferDispatchPkt(tokIN, ep_number);
+//     if (rcode != hrSUCCESS)
+//         return rcode;
+
+//     if (!(MAXreg_rd(rHIRQ) & bmRCVDAVIRQ))
+//         return USB_RX_NO_DATA_IRQ;
+
+//     count = MAXreg_rd(rRCVBC);
+
+//     if (count > capacity || count > ep->MaxPktSize) {
+//         /*
+//          * Unexpected controller/device state:
+//          * release this packet, retain the current toggle state,
+//          * and report an error instead of overflowing the buffer.
+//          */
+//         MAXreg_wr(rHIRQ, bmRCVDAVIRQ);
+
+//         hrsl = MAXreg_rd(rHRSL);
+//         ep->rcvToggle = (hrsl & bmRCVTOGRD)
+//                      ? bmRCVTOG1 : bmRCVTOG0;
+
+//         return USB_RX_BAD_LENGTH;
+//     }
+
+//     if (count != 0)
+//         MAXbytes_rd(rRCVFIFO, count, data);
+
+//     MAXreg_wr(rHIRQ, bmRCVDAVIRQ);
+
+//     hrsl = MAXreg_rd(rHRSL);
+//     ep->rcvToggle = (hrsl & bmRCVTOGRD)
+//                  ? bmRCVTOG1 : bmRCVTOG0;
+
+//     *actual_length = count;
+//     return hrSUCCESS;
+// }
 
 //place-holders for MSD (mass-storage device) drivers, we don't have them ported.
 //returns TRUE if device is successfully identified and configured, otherwise returns FALSE

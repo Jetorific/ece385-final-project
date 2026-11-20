@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "project_config.h"
+#include "transfer.h"
 #include "MIDI.h"
 
 #define BUF_BUFFER_SIZE 256
@@ -16,6 +17,9 @@ extern DEV_RECORD devtable[];
 static BYTE buf[BUF_BUFFER_SIZE];
 static EP_RECORD midi_ep[2];
 
+BYTE midi_addr = 0;
+
+
 BOOL MIDIProbe(BYTE address, DWORD flags) {
 	BYTE rcode;
 	BYTE config_value;
@@ -24,7 +28,6 @@ BOOL MIDIProbe(BYTE address, DWORD flags) {
 	WORD total_length;
 	BYTE* descriptor;
 	BYTE* descriptor_end;
-	EP_RECORD midi_in_ep = { 0 };
 
 	(void)flags;
 
@@ -45,7 +48,7 @@ BOOL MIDIProbe(BYTE address, DWORD flags) {
 
 	total_length = read_word(buf + 2);
     
-	if (total_length < buf[0] || total_length > sizeof(buf)) {
+	if (total_length > sizeof(buf)) {
 		return FALSE;
 	}
 
@@ -53,33 +56,20 @@ BOOL MIDIProbe(BYTE address, DWORD flags) {
 
     // Read entire configuration descriptor including interface and endpoint descriptors
 	rcode = XferGetConfDescr(address, 0, total_length, 0, buf);
-	if (rcode != 0
-			|| buf[1] != USB_DESCRIPTOR_CONFIGURATION
-			|| buf[0] < CONF_DESCR_LEN
-			|| buf[0] > total_length) {
+	if (rcode != 0 || buf[0] != CONF_DESCR_LEN || buf[1] != USB_DESCRIPTOR_CONFIGURATION) {
 		return FALSE;
 	}
 
 	config_value = buf[5];
 	midi_interface = FALSE;
 	found_endpoint = FALSE;
-	descriptor = buf + buf[0];
-	descriptor_end = buf + total_length;
+	descriptor = buf + buf[0]; // Pointer to iterate over descriptors
+	descriptor_end = buf + total_length; // Pointer to end of entire configuration descriptor
 
 	while (descriptor < descriptor_end) {
-		BYTE descriptor_length;
-		WORD remaining;
+		BYTE descriptor_length = descriptor[0];
 
-		remaining = (WORD)(descriptor_end - descriptor);
-		if (remaining < 2) {
-			return FALSE;
-		}
-
-		descriptor_length = descriptor[0];
-		if (descriptor_length < 2 || descriptor_length > remaining) {
-			return FALSE;
-		}
-
+        // Interface descriptor
 		if (descriptor[1] == USB_DESCRIPTOR_INTERFACE) {
 			if (descriptor_length < INTR_DESCR_LEN) {
 				return FALSE;
@@ -88,8 +78,12 @@ BOOL MIDIProbe(BYTE address, DWORD flags) {
 					descriptor[3] == 0
 					&& descriptor[5] == USB_CLASS_AUDIO
 					&& descriptor[6] == USB_SUBCLASS_MIDI_STREAMING;
-		} else if (descriptor[1] == USB_DESCRIPTOR_ENDPOINT
-				&& midi_interface) {
+
+            midi_addr = address;
+            devtable[address].devclass = MIDI_DRIVER;                  //device class
+
+        // Endpoint descriptor
+		} else if (descriptor[1] == USB_DESCRIPTOR_ENDPOINT && midi_interface) {
 			BYTE endpoint_address;
 
 			if (descriptor_length < EP_DESCR_LEN) {
@@ -97,20 +91,22 @@ BOOL MIDIProbe(BYTE address, DWORD flags) {
 			}
 
 			endpoint_address = descriptor[2];
+            // Check for IN, non-zero address, bulk transfer
 			if ((endpoint_address & EP_DIR_IN) != 0
 					&& (endpoint_address & 0x0f) != 0
 					&& (descriptor[3] & bmUSB_TRANSFER_TYPE)
 							== USB_TRANSFER_TYPE_BULK) {
-				midi_in_ep.epAddr = endpoint_address;
-				midi_in_ep.Attr = descriptor[3];
-				midi_in_ep.MaxPktSize = (WORD)descriptor[4]
-						| ((WORD)descriptor[5] << 8);
-				if (midi_in_ep.MaxPktSize == 0) {
+
+				midi_ep[1].epAddr = endpoint_address;
+				midi_ep[1].Attr = descriptor[3];
+				midi_ep[1].MaxPktSize = read_word(descriptor + 4);
+                
+				if (midi_ep[1].MaxPktSize == 0) {
 					return FALSE;
 				}
-				midi_in_ep.Interval = descriptor[6];
-				midi_in_ep.sndToggle = bmSNDTOG0;
-				midi_in_ep.rcvToggle = bmRCVTOG0;
+				midi_ep[1].Interval = descriptor[6];
+				midi_ep[1].sndToggle = bmSNDTOG0;
+				midi_ep[1].rcvToggle = bmRCVTOG0;
 				found_endpoint = TRUE;
 				break;
 			}
@@ -128,11 +124,19 @@ BOOL MIDIProbe(BYTE address, DWORD flags) {
 		return FALSE;
 	}
 
+    // Copy over control endpoint including MaxPktSize
 	midi_ep[0] = devtable[address].epinfo[0];
-	midi_ep[1] = midi_in_ep;
 	devtable[address].epinfo = midi_ep;
 
 	return TRUE;
+}
+
+BYTE MIDIPoll(void* buf) {
+    BYTE rcode;
+	MAXreg_wr( rPERADDR, midi_addr);    //set peripheral address
+	rcode = XferInTransfer(midi_addr, 1, 8, (BYTE*) buf,
+			devtable[midi_addr].epinfo[1].MaxPktSize);
+	return (rcode);
 }
 
 BOOL MIDIEventHandler(BYTE address, BYTE event, void *data, DWORD size) {
