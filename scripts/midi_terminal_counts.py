@@ -15,7 +15,7 @@ for note in range(128):
 
 assert counts[69] == 113_635  # A4: 440 Hz
 
-Path("midi_terminal_counts.mem").write_text(
+Path("scripts/midi_terminal_counts.mem").write_text(
     "".join(f"{count:06X}\n" for count in counts),
     encoding="ascii",
 )
