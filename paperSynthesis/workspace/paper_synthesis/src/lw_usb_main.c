@@ -79,7 +79,8 @@ int main() {
    	BYTE rcode;
 	BOOT_MOUSE_REPORT buf;		//USB mouse report
 	BOOT_KBD_REPORT kbdbuf;
-	char MIDIbuf[4];
+	unsigned char MIDIbuf[4];
+	u32 midi_data; // Used for printing MIDI to GPIO
 
 	BYTE runningdebugflag = 0;//flag to dump out a bunch of information when we first get to USB_STATE_RUNNING
 	BYTE errorflag = 0; //flag once we get an error device so we don't keep dumping out state info
@@ -150,7 +151,8 @@ int main() {
 				xil_printf("%x\n", MIDIbuf[3]);
 
 				// velocity, note, status, idk
-				printMIDI((MIDIbuf[3] << 24) + (MIDIbuf[2] << 16) + (MIDIbuf[1] << 8) + MIDIbuf[0]);
+				memcpy(&midi_data, MIDIbuf, 4);
+				printMIDI(midi_data);
 			}
 		} else if (GetUsbTaskState() == USB_STATE_ERROR) {
 			if (!errorflag) {
