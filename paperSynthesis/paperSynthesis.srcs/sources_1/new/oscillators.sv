@@ -30,24 +30,26 @@ module oscillators (
     
     output logic [15:0] audio_sig
 );
-    logic [22:0] midi_rom [0:127];
+    logic [23:0] midi_rom [0:127];
+    logic [15:0] sine_wavetable [0:2047];
     
     logic [7:0] midi_velocity, midi_note, midi_status;
     logic note_begin;
     
-    logic [22:0] counter, counter_end;
-    logic sq_high;
-    
+    logic [31:0] counter;
+    logic [23:0] count_increment;
+    logic [15:0] sample;
     
     initial begin
-        $readmemh("midi_terminal_counts.mem", midi_rom, 0, 127);
+        $readmemh("midi_wavetable_counts.mem", midi_rom, 0, 127);
+        $readmemh("sine_2048x16.mem", sine_wavetable, 0, 2047);
     end
     
     always_ff @(posedge Clk) begin
         if (reset)
-            counter_end <= '0;
+            count_increment <= '0;
         else if (note_begin)
-            counter_end <= midi_rom[midi_note];
+            count_increment <= midi_rom[midi_note];
     end
 
     
@@ -58,6 +60,8 @@ module oscillators (
             midi_status <= 8'h80; // note off
             note_begin <= 1'b0;
         end else begin
+            note_begin <= 1'b0;
+            
             if (midi_data[15:8] == 8'h90 && midi_data[31:24] != 8'h00) begin //note on; always change pitch
                 if (midi_status == 8'h80 || midi_velocity == 8'h00 || (midi_data[23:16] != midi_note))
                     note_begin <= 1'b1;
@@ -68,7 +72,6 @@ module oscillators (
             end else if (midi_data[15:8] == 8'h80 || (midi_data[15:8] == 8'h90 && midi_data[31:24] == 8'h00)) begin // note off; only stop note if same as current note
                 if (midi_data[23:16] == midi_note) begin
                     midi_velocity <= 8'h00;
-                    midi_note <= midi_note;
                     midi_status <= 8'h80;
                 end
             end
@@ -81,17 +84,13 @@ module oscillators (
     
     always_ff @(posedge Clk) begin
         if (reset || note_begin) begin
-            sq_high <= 1'b0;
-            counter <= 16'b0;
+            counter <= 32'b0;
         end else begin
-            if (counter == counter_end) begin
-                counter <= 0;
-                sq_high <= ~sq_high;
-            end else
-                counter <= counter + 23'b1;
+            counter <= counter + count_increment;
         end
     end
     
-    assign audio_sig = (midi_velocity != 8'h00) ? (sq_high ? 16'h7FFF : 16'h8000) : 16'h0000;
+    assign sample = sine_wavetable[counter[31:21]]; // Grabs top 11 bits of counter and uses them to index the sine wavetable
+    assign audio_sig = (midi_velocity != 8'h00) ? sample : 16'h0000;
 
 endmodule

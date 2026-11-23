@@ -6,6 +6,7 @@ from pathlib import Path
 #  2. Calculate requested frequency
 #  3. Count increment = (requested frequency) / (lowest frequency)
 #  4. Round the increment to an integer and store it to ROM
+# NOTE: outputs are 24-bit (IMPORTANTLY no increment requires more than 24 bits to represent)
 
 CLK_HZ = 100_000_000
 COUNT_BITS = 32
@@ -24,14 +25,14 @@ for note in range(128):
     counts.append(rounded)
     errors.append(freq_error)
 
-    assert freq_error <= 0.1, (note, freq_error, rounded, hz, min_hz)
+    assert abs(freq_error) <= 0.1, (note, freq_error, rounded, hz, min_hz)
 
 print()
 print(f"Max error magnitude: {max([abs(error) for error in errors])} Hz")
 print(f"Average error: {sum(errors)/len(errors)} Hz")
 print(f"Standard deviation: {(sum([(error - sum(errors)/len(errors))**2 for error in errors])/len(errors))**0.5} Hz")
 
-Path("scripts/midi_wavetable_counts.mem").write_text(
+Path("mem/midi_wavetable_counts.mem").write_text(
     "".join(f"{count:06X}\n" for count in counts),
     encoding="ascii",
 )

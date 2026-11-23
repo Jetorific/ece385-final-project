@@ -1640,6 +1640,21 @@
           }
         }
       }
+    },
+    "elf_association": {
+      "file": {
+        "name": "C:/Xilinx/VivadoProjects/ece385-final-project/paperSynthesis/workspace/paper_synthesis/Debug/paper_synthesis.elf",
+        "type": "ELF",
+        "checksum": "3105230720",
+        "IsVisible": "1",
+        "ScopedToRef": "mb_block",
+        "ScopedToCell": [
+          "microblaze_0"
+        ],
+        "UsedIn": [
+          "implementation"
+        ]
+      }
     }
   }
 }
