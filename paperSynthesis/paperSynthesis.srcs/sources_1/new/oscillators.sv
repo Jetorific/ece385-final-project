@@ -31,18 +31,23 @@ module oscillators (
     output logic [15:0] audio_sig
 );
     logic [23:0] midi_rom [0:127];
-    logic [15:0] sine_wavetable [0:2047];
+    logic signed [15:0] wavetable_0 [0:2047];
+    logic signed [15:0] wavetable_1 [0:2047];
     
     logic [7:0] midi_velocity, midi_note, midi_status;
     logic note_begin;
     
     logic [31:0] counter;
     logic [23:0] count_increment;
-    logic [15:0] sample;
+    logic signed [15:0] sample;
+    
+    logic signed [7:0] velocity_gain;
+    logic signed [32:0] scaled_sample;
     
     initial begin
         $readmemh("midi_wavetable_counts.mem", midi_rom, 0, 127);
-        $readmemh("sine_2048x16.mem", sine_wavetable, 0, 2047);
+        $readmemh("smth2_2048x16.mem", wavetable_0, 0, 2047);
+        $readmemh("sawtooth_2048x16.mem", wavetable_1, 0, 2047);
     end
     
     always_ff @(posedge Clk) begin
@@ -83,14 +88,23 @@ module oscillators (
     
     
     always_ff @(posedge Clk) begin
-        if (reset || note_begin) begin
+        if (reset) begin
             counter <= 32'b0;
         end else begin
             counter <= counter + count_increment;
         end
     end
     
-    assign sample = sine_wavetable[counter[31:21]]; // Grabs top 11 bits of counter and uses them to index the sine wavetable
-    assign audio_sig = (midi_velocity != 8'h00) ? sample : 16'h0000;
+    // Grabs top 11 bits of counter and uses them to index the sine wavetable
+    assign sample = sw[12] ? wavetable_1[counter[31:21]] : wavetable_0[counter[31:21]];
+    
+    // Zero-extend MIDI velocity
+    assign velocity_gain = $signed({1'b0, midi_velocity[6:0]});
+    
+    // Scale sample by velocity
+    assign scaled_sample = sample * velocity_gain;
+    
+    // Divide by 128 to rescale sample to 16 bits
+    assign audio_sig = scaled_sample >>> 7;
 
 endmodule
