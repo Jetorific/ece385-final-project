@@ -177,7 +177,7 @@ module paper_synth_top(
     assign clk_3MHz = clk_count[2];
     
     oscillator_bank #(
-        .NUM_OSCILLATORS(4)
+        .NUM_OSCILLATORS(8)
     ) osc_bank (
         .Clk(sys_clk_100),
         .reset(sys_reset_ah),
