@@ -137,10 +137,10 @@ module paper_synth_top(
     assign clk_6MHz = clk_count[1];
     assign clk_3MHz = clk_count[2];
     
-    oscillators osc (
+    oscillator_bank #(
+        .NUM_OSCILLATORS(2)
+    ) osc_bank (
         .Clk(Clk),
-        .bck(S_BCK),
-        .sample_en(sample_en),
         .reset(reset_ah),
         .sw(sw_i),
         .midi_data(midi_data),

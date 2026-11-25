@@ -19,22 +19,12 @@ platform active {paper_synth_top}
 platform generate -quick
 platform clean
 platform generate
-platform generate
-platform clean
-platform clean
-platform active {paper_synth_top}
 platform active {paper_synth_top}
 platform config -updatehw {C:/Xilinx/VivadoProjects/ece385-final-project/paperSynthesis/paper_synth_top.xsa}
 platform clean
-platform generate
-platform active {paper_synth_top}
-platform config -updatehw {C:/Xilinx/VivadoProjects/ece385-final-project/paperSynthesis/paper_synth_top.xsa}
 platform clean
 platform generate
 platform active {paper_synth_top}
-platform config -updatehw {C:/Xilinx/VivadoProjects/ece385-final-project/paperSynthesis/paper_synth_top.xsa}
-platform clean
-platform generate
 platform config -updatehw {C:/Xilinx/VivadoProjects/ece385-final-project/paperSynthesis/paper_synth_top.xsa}
 platform clean
 platform generate
