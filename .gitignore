@@ -5,6 +5,8 @@
 !IP/**
 !scripts/**
 
+!.gitattributes
+
 # HDL sources and headers
 !*.v
 !*.sv
