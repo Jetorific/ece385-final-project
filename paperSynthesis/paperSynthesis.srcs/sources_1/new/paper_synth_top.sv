@@ -56,7 +56,14 @@ module paper_synth_top(
     output logic S_DIN,
     output logic S_LRCK
 );
+    logic sys_clk_100;
+    logic sys_aresetn;
+    logic sys_reset_ah;
+    assign sys_reset_ah = ~sys_aresetn;
+
     logic [31:0] midi_data;
+    logic midi_toggle_previous, midi_toggle;
+    logic midi_valid;
     logic [15:0] audio_sig;
     
 //    logic [31:0] keycode0_gpio, keycode1_gpio;
@@ -79,6 +86,15 @@ module paper_synth_top(
             rgb = 12'h135;
     end
     
+    // MIDI is valid if midi_toggle has changed
+    assign midi_valid = !reset_ah && (midi_toggle ^ midi_toggle_previous);
+    always_ff @(posedge Clk) begin
+        if (reset_ah)
+            midi_toggle_previous <= 1'b0;
+        else
+            midi_toggle_previous <= midi_toggle;
+    end
+    
     //Keycode HEX drivers
     hex_driver HexA (
         .clk(Clk),
@@ -96,7 +112,27 @@ module paper_synth_top(
         .hex_grid(hex_gridB)
     );
     
-    assign led_o = audio_sig;
+//    assign led_o = audio_sig;
+    logic midi_seen;
+    logic [7:0] midi_event_count;
+    
+    always_ff @(posedge sys_clk_100) begin
+        if (sys_reset_ah) begin
+            midi_seen        <= 1'b0;
+            midi_event_count <= '0;
+        end else if (midi_valid) begin
+            midi_seen        <= 1'b1;
+            midi_event_count <= midi_event_count + 1'b1;
+        end
+    end
+    
+    // Temporarily replace: assign led_o = audio_sig;
+    assign led_o = {
+        6'b0,
+        midi_toggle,
+        midi_seen,
+        midi_event_count
+    };
     
     mb_block mb_block_i (
         .clk_100MHz(Clk),
@@ -111,7 +147,10 @@ module paper_synth_top(
         .usb_spi_mosi(usb_spi_mosi),
         .usb_spi_sclk(usb_spi_sclk),
         .usb_spi_ss(usb_spi_ss),
-        .gpio_midi_o_tri_o(midi_data)
+        .gpio_midi_o_tri_o(midi_data),
+        .gpio_midi_toggle_tri_o(midi_toggle),
+        .sys_clk_100(sys_clk_100),
+        .sys_aresetn(sys_aresetn)
     );
         
     //clock wizard configured with a 1x and 5x clock for HDMI. Also generating sample clock for audio interface.
@@ -138,12 +177,13 @@ module paper_synth_top(
     assign clk_3MHz = clk_count[2];
     
     oscillator_bank #(
-        .NUM_OSCILLATORS(2)
+        .NUM_OSCILLATORS(4)
     ) osc_bank (
-        .Clk(Clk),
-        .reset(reset_ah),
+        .Clk(sys_clk_100),
+        .reset(sys_reset_ah),
         .sw(sw_i),
         .midi_data(midi_data),
+        .midi_valid(midi_valid),
         
         .audio_sig(audio_sig)
     );
@@ -152,7 +192,7 @@ module paper_synth_top(
     assign ch1 = ch0;
     
     audio_interface audio (
-        .bck(sw_i[15] ? (sw_i[14] ? clk_24MHz : clk_12MHz) : (sw_i[14] ? clk_6MHz : clk_3MHz)), // Choosing 6MHz instead of the generated 3MHz gets a 96kHz sample rate
+        .bck(clk_12MHz), // Choosing 6MHz instead of the generated 3MHz gets a 96kHz sample rate
         .reset(reset_ah),
         .ch0(ch0), // Left channel
         .ch1(ch1), // Right channel

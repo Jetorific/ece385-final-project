@@ -16,6 +16,7 @@ extern HID_DEVICE hid_device;
 
 //static XGpio Gpio_hex;
 static XGpio Gpio_midi;
+static u32 midi_toggle = 0; // Toggled whenever MIDI data is sent so the top level can detect messages
 
 static BYTE addr = 1; 				//hard-wired USB address
 const char* const devclasses[] = { " Uninitialized", " HID Keyboard", " HID Mouse", " Mass storage", "MIDI Device" };
@@ -64,6 +65,8 @@ BYTE GetDriverandReport() {
 void printMIDI (u32 data)
 {
 	XGpio_DiscreteWrite (&Gpio_midi, 1, data);
+	midi_toggle ^= 0x00000001;
+	XGpio_DiscreteWrite(&Gpio_midi, 2, midi_toggle);
 }
 
 int main() {
@@ -142,6 +145,10 @@ int main() {
 				rcode = MIDIPoll(&MIDIbuf);
 				if (rcode == hrNAK) {
 					continue;
+				}
+				if (rcode) {
+				    xil_printf("MIDI poll error: %x\r\n", rcode);
+				    continue;
 				}
 				xil_printf("Status: ");
 				xil_printf("%x ", MIDIbuf[1]);

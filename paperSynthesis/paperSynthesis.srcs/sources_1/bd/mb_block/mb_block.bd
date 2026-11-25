@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0x4D98AB87BB42F543",
+      "boundary_crc": "0x4BB27F993A5B1E3",
       "device": "xc7s50csga324-1",
       "gen_directory": "../../../../paperSynthesis.gen/sources_1/bd/mb_block",
       "name": "mb_block",
@@ -108,6 +108,19 @@
             "right": "0"
           }
         }
+      },
+      "gpio_midi_toggle": {
+        "mode": "Master",
+        "vlnv_bus_definition": "xilinx.com:interface:gpio:1.0",
+        "vlnv": "xilinx.com:interface:gpio_rtl:1.0",
+        "port_maps": {
+          "TRI_O": {
+            "physical_name": "gpio_midi_toggle_tri_o",
+            "direction": "O",
+            "left": "0",
+            "right": "0"
+          }
+        }
       }
     },
     "ports": {
@@ -162,6 +175,34 @@
         "direction": "O",
         "left": "0",
         "right": "0"
+      },
+      "sys_clk_100": {
+        "direction": "O",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "/clk_wiz_1_clk_out1",
+            "value_src": "ip_prop"
+          },
+          "FREQ_HZ": {
+            "value": "100000000",
+            "value_src": "ip_prop"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "ip_prop"
+          }
+        }
+      },
+      "sys_aresetn": {
+        "direction": "O",
+        "left": "0",
+        "right": "0",
+        "parameters": {
+          "POLARITY": {
+            "value": "ACTIVE_LOW",
+            "value_src": "const_prop"
+          }
+        }
       }
     },
     "components": {
@@ -1336,6 +1377,15 @@
         "parameters": {
           "C_ALL_OUTPUTS": {
             "value": "1"
+          },
+          "C_ALL_OUTPUTS_2": {
+            "value": "1"
+          },
+          "C_GPIO2_WIDTH": {
+            "value": "1"
+          },
+          "C_IS_DUAL": {
+            "value": "1"
           }
         }
       }
@@ -1363,6 +1413,12 @@
         "interface_ports": [
           "gpio_midi_o",
           "gpio_midi/GPIO"
+        ]
+      },
+      "gpio_midi_GPIO2": {
+        "interface_ports": [
+          "gpio_midi_toggle",
+          "gpio_midi/GPIO2"
         ]
       },
       "microblaze_0_axi_dp": {
@@ -1493,7 +1549,8 @@
           "timer_usb_axi/s_axi_aclk",
           "microblaze_0_axi_periph/M05_ACLK",
           "gpio_midi/s_axi_aclk",
-          "microblaze_0_axi_periph/M06_ACLK"
+          "microblaze_0_axi_periph/M06_ACLK",
+          "sys_clk_100"
         ]
       },
       "microblaze_0_intr": {
@@ -1539,7 +1596,8 @@
           "timer_usb_axi/s_axi_aresetn",
           "microblaze_0_axi_periph/M05_ARESETN",
           "gpio_midi/s_axi_aresetn",
-          "microblaze_0_axi_periph/M06_ARESETN"
+          "microblaze_0_axi_periph/M06_ARESETN",
+          "sys_aresetn"
         ]
       },
       "spi_usb_io0_o": {
@@ -1645,7 +1703,7 @@
       "file": {
         "name": "C:/Xilinx/VivadoProjects/ece385-final-project/paperSynthesis/workspace/paper_synthesis/Debug/paper_synthesis.elf",
         "type": "ELF",
-        "checksum": "3105230720",
+        "checksum": "594790509",
         "IsVisible": "1",
         "ScopedToRef": "mb_block",
         "ScopedToCell": [
