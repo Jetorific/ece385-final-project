@@ -54,10 +54,13 @@ module oscillator_bank #(
     logic [6:0] voice_note     [0:NUM_OSCILLATORS-1];
     logic [7:0] voice_velocity [0:NUM_OSCILLATORS-1];
     logic [3:0] voice_channel  [0:NUM_OSCILLATORS-1];
+    logic [23:0] count_increment [0:NUM_OSCILLATORS-1];
     
     logic [31:0] counter [0:NUM_OSCILLATORS-1];
     logic signed [15:0] osc_sample [0:NUM_OSCILLATORS-1];
     logic signed [15:0] osc_audio  [0:NUM_OSCILLATORS-1];
+    
+    logic [NUM_OSC_LOG2-1:0] osc_switcher; // Switches between which oscillator is reading the wavetable
     
     initial begin
         $readmemh("midi_wavetable_counts.mem", midi_rom, 0, 127);
@@ -239,11 +242,10 @@ module oscillator_bank #(
     
             // Each oscillator reads the shared wavetable with its own counter/phase
     //            assign osc_sample[i] = wavetable[counter[i][31:21]];
-            assign osc_sample[i] = wavetable[counter[i][31:21]];
             oscillator u_oscillator (
                 .Clk             (Clk),
                 .reset           (reset),
-                .count_increment (midi_rom[voice_note[i]]),
+                .count_increment (count_increment[i]),
                 .sample          (osc_sample[i]),
                 .midi_velocity   (voice_velocity[i]),
                 .audio_sig       (osc_audio[i]),
@@ -252,6 +254,29 @@ module oscillator_bank #(
     
         end
     endgenerate
+    
+    always_ff @(posedge Clk) begin
+        if (reset) begin
+            osc_switcher <= 'b0;
+            for (int i = 0; i < NUM_OSCILLATORS; i++) begin
+                count_increment[i] <= 'b0;
+                osc_sample[i] <= 'b0;
+            end
+        end else begin
+            count_increment[osc_switcher] <= midi_rom[voice_note[osc_switcher]];
+            osc_sample[osc_switcher] <= wavetable[counter[osc_switcher][31:21]]; // Implement linear or hermite interpolation later
+            
+            // Optimize if NUM_OSCILLATORS is a power of 2
+            if ($onehot(NUM_OSCILLATORS)) begin
+                osc_switcher <= osc_switcher + 1'b1;
+            end else begin
+                if (osc_switcher < NUM_OSCILLATORS-1)
+                    osc_switcher <= osc_switcher + 1'b1;
+                else
+                    osc_switcher <= 'b0;
+            end
+        end
+    end
 
     localparam int MIX_SHIFT = NUM_OSC_LOG2;
     localparam int MIX_WIDTH = 16 + MIX_SHIFT;
