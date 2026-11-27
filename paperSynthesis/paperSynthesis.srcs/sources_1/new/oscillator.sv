@@ -1,53 +1,33 @@
-`timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 11/24/2026 06:45:02 PM
-// Design Name: 
-// Module Name: oscillator
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
-
 module oscillator(
-    input logic Clk,
-    input logic reset,
-    input logic [23:0] count_increment,
-    input logic signed [15:0] sample,
-    input logic [7:0] midi_velocity,
+    input  logic Clk,
+    input  logic reset,
+    input  logic [23:0] count_increment,
+    input  logic signed [15:0] sample,
+    input  logic [7:0] midi_velocity,
 
     output logic signed [15:0] audio_sig,
     output logic [31:0] counter
 );
-    logic signed [7:0] velocity_gain;
-    logic signed [32:0] scaled_sample;
+    logic signed [7:0]  velocity_gain;
+    logic signed [23:0] scaled_sample;
+    logic signed [23:0] scaled_sample_q;
 
-    // Update counter
+    // Update phase
     always_ff @(posedge Clk) begin
-        if (reset) begin
+        if (reset)
             counter <= 32'b0;
-        end else begin
+        else
             counter <= counter + count_increment;
-        end
     end
-    
-    // Zero-extend MIDI velocity
-    assign velocity_gain = $signed({1'b0, midi_velocity[6:0]});
-    
+
     // Scale sample by velocity
+    assign velocity_gain = $signed({1'b0, midi_velocity[6:0]});
     assign scaled_sample = sample * velocity_gain;
-    
-    // Divide by 128 to rescale sample to 16 bits
-    assign audio_sig = scaled_sample >>> 7;
+
+    // Pipelining DSP operation
+    always_ff @(posedge Clk) begin
+        scaled_sample_q <= scaled_sample;
+    end
+
+    assign audio_sig = scaled_sample_q >>> 7;  // arithmetic shift is trivial
 endmodule

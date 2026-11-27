@@ -232,6 +232,7 @@ module oscillator_bank #(
     
             end else if (free_request) begin
                 voice_velocity[match_index_q] <= 8'h00;
+                count_increment[match_index_q]  <= 'b0; // Stop counter from running while note is off
             end
         end
     end
@@ -247,7 +248,7 @@ module oscillator_bank #(
                 .count_increment (count_increment[i]),
                 .sample          (osc_sample[i]),
                 .midi_velocity   (voice_velocity[i]),
-                .audio_sig       (osc_audio[i]),
+                .audio_sig      (osc_audio[i]),
                 .counter         (counter[i])
             );
     
@@ -276,7 +277,7 @@ module oscillator_bank #(
             end
         end else begin
             // Stage 2: update oscillator with new sample
-            osc_sample[idx_q1] <= wavetable[counter[osc_switcher][31:21]]; // Implement linear or hermite interpolation later
+            osc_sample[idx_q1] <= rd_data; // Implement linear or hermite interpolation later
             
             if (osc_switcher == NUM_OSCILLATORS-1)
                 osc_switcher <= 'b0;
