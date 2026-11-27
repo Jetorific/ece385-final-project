@@ -48,6 +48,8 @@ module oscillator_bank #(
     
     logic signed [15:0] wavetable [0:2047];
     
+    logic signed [15:0] audio_sig;
+    
     // Oscillator data
     logic [6:0] voice_note     [0:NUM_OSCILLATORS-1];
     logic [7:0] voice_velocity [0:NUM_OSCILLATORS-1];
@@ -114,7 +116,9 @@ module oscillator_bank #(
     end
     
     logic match_found_q, note_on_event_q, note_off_event_q;
-    logic incoming_note_q, incoming_velocity_q, incoming_channel_q;
+    logic [6:0] incoming_note_q;
+    logic [7:0] incoming_velocity_q;
+    logic [3:0] incoming_channel_q;
     logic [NUM_OSC_LOG2-1:0] match_index_q;
     
     // Pipelining match_found, match_index, note_on_event, note_off_event,
@@ -272,15 +276,19 @@ module oscillator_bank #(
     assign audio_sig = mix_scaled[15:0];
     
     logic [15:0] audio_mix_q;          // registered mixed sample
-    logic [15:0] audio_hold;           // stable value for the audio side
     (* ASYNC_REG = "TRUE" *) logic [2:0] req_sync; // Prevent unwanted optimizations for the CDC (Clock Domain Crossing)
     
     always_ff @(posedge Clk) begin
-        audio_mix_q <= audio_sig;              // optionally pipeline further
-        req_sync    <= {req_sync[1:0], req_toggle};   // req_toggle from audio domain. May be metastable, so req_sync[1] has the settled value and req_sync[2] has the previous settled value.
-        if (req_sync[2] ^ req_sync[1]) begin
-            audio_hold <= audio_mix_q;
-            ack_toggle <= ~ack_toggle;
+        if (reset) begin
+            ack_toggle <= 1'b0;
+            req_sync <= 3'b0;
+        end else begin
+            audio_mix_q <= audio_sig;              // optionally pipeline further
+            req_sync    <= {req_sync[1:0], req_toggle};   // req_toggle from audio domain. May be metastable, so req_sync[1] has the settled value and req_sync[2] has the previous settled value.
+            if (req_sync[2] ^ req_sync[1]) begin
+                audio_hold <= audio_mix_q;
+                ack_toggle <= ~ack_toggle;
+            end
         end
     end
 

@@ -90,13 +90,13 @@ module paper_synth_top(
     end
     
     // MIDI is valid if midi_toggle has changed
-    assign midi_valid = !reset_ah && (midi_toggle ^ midi_toggle_previous);
-    always_ff @(posedge Clk) begin
-        if (reset_ah)
+    always_ff @(posedge sys_clk_100) begin
+        if (sys_reset_ah)
             midi_toggle_previous <= 1'b0;
         else
             midi_toggle_previous <= midi_toggle;
     end
+    assign midi_valid = !sys_reset_ah && (midi_toggle ^ midi_toggle_previous);
     
     //Keycode HEX drivers
     hex_driver HexA (
@@ -184,7 +184,7 @@ module paper_synth_top(
     
     audio_interface audio (
         .bck(clk_12MHz), // Choosing 6MHz instead of the generated 3MHz gets a 96kHz sample rate
-        .reset(reset_ah),
+        .reset(sys_reset_ah),
         .ch0(ch0), // Left channel
         .ch1(ch1), // Right channel
         .ack_toggle(ack_toggle),
