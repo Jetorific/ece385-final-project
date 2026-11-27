@@ -35,6 +35,9 @@ module oscillator_bank #(
 );
     // Requires NUM_OSCILLATORS >= 1.
     localparam int NUM_OSC_LOG2 = $clog2(NUM_OSCILLATORS);
+    
+    // Number of wavetables to concatenate into wavetable
+    localparam int NUM_WAVETABLES = 2;
 
     // freelist variables
     logic [NUM_OSC_LOG2-1:0] freelist_head;
@@ -43,10 +46,7 @@ module oscillator_bank #(
     logic [NUM_OSC_LOG2-1:0] freelist_prev [NUM_OSCILLATORS];
 
     logic [23:0] midi_rom [0:127];
-    logic signed [15:0] wavetable_0 [0:2047];
-    logic signed [15:0] wavetable_1 [0:2047];
-    
-    logic signed [15:0] wavetable [0:2047];
+    logic signed [15:0] wavetable [0:2048*NUM_WAVETABLES-1];
     
     logic signed [15:0] audio_sig;
     
@@ -62,12 +62,12 @@ module oscillator_bank #(
     
     logic [NUM_OSC_LOG2-1:0] osc_switcher; // Switches between which oscillator is reading the wavetable
     
+    // Read ROMs into memory
     initial begin
         $readmemh("midi_wavetable_counts.mem", midi_rom, 0, 127);
-        $readmemh("smth2_2048x16.mem", wavetable_0, 0, 2047);
-        $readmemh("sine_2048x16.mem", wavetable_1, 0, 2047);
+        $readmemh("smth2_2048x16.mem", wavetable, 0, 2047);     // Concatenating wavetables
+        $readmemh("sine_2048x16.mem", wavetable, 2048, 4095);   //  ...
     end
-    
     
     // MIDI input parsing
     logic [7:0] incoming_status;
@@ -222,10 +222,11 @@ module oscillator_bank #(
     
         end else begin
             if (allocate_request) begin
-                voice_note[freelist_head]     <= incoming_note_q;
-                voice_velocity[freelist_head] <= incoming_velocity_q;
-                voice_channel[freelist_head]  <= incoming_channel_q;
-    
+                voice_note[freelist_head]       <= incoming_note_q;
+                voice_velocity[freelist_head]   <= incoming_velocity_q;
+                voice_channel[freelist_head]    <= incoming_channel_q;
+                count_increment[freelist_head]  <= midi_rom[incoming_note_q]; // Update count increment only when new note is allocated
+                
             end else if (update_existing_request) begin
                 voice_velocity[match_index_q] <= incoming_velocity_q;
     
@@ -234,8 +235,6 @@ module oscillator_bank #(
             end
         end
     end
-    
-    assign wavetable = sw[12] ? wavetable_0 : wavetable_1;
 
     generate
         for (genvar i = 0; i < NUM_OSCILLATORS; i++) begin : gen_oscillators
@@ -255,26 +254,34 @@ module oscillator_bank #(
         end
     endgenerate
     
+    // Pipelining for wavetable reads
+    logic [11:0] rd_addr_q;
+    logic signed [15:0] rd_data;
+    logic [NUM_OSC_LOG2-1:0] idx_q0, idx_q1;
+    
+    always_ff @(posedge Clk) begin
+        // Stage 0: select oscillator, register the address
+        rd_addr_q <= {~sw[12], counter[osc_switcher][31:21]};
+        idx_q0    <= osc_switcher;
+        // Stage 1: read from wavetable
+        rd_data   <= wavetable[rd_addr_q];
+        idx_q1    <= idx_q0;
+    end
+    
     always_ff @(posedge Clk) begin
         if (reset) begin
             osc_switcher <= 'b0;
             for (int i = 0; i < NUM_OSCILLATORS; i++) begin
-                count_increment[i] <= 'b0;
                 osc_sample[i] <= 'b0;
             end
         end else begin
-            count_increment[osc_switcher] <= midi_rom[voice_note[osc_switcher]];
-            osc_sample[osc_switcher] <= wavetable[counter[osc_switcher][31:21]]; // Implement linear or hermite interpolation later
+            // Stage 2: update oscillator with new sample
+            osc_sample[idx_q1] <= wavetable[counter[osc_switcher][31:21]]; // Implement linear or hermite interpolation later
             
-            // Optimize if NUM_OSCILLATORS is a power of 2
-            if ($onehot(NUM_OSCILLATORS)) begin
+            if (osc_switcher == NUM_OSCILLATORS-1)
+                osc_switcher <= 'b0;
+            else
                 osc_switcher <= osc_switcher + 1'b1;
-            end else begin
-                if (osc_switcher < NUM_OSCILLATORS-1)
-                    osc_switcher <= osc_switcher + 1'b1;
-                else
-                    osc_switcher <= 'b0;
-            end
         end
     end
 
