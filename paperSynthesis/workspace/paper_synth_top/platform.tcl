@@ -38,3 +38,12 @@ platform generate
 platform config -updatehw {C:/Xilinx/VivadoProjects/ece385-final-project/paperSynthesis/paper_synth_top.xsa}
 platform clean
 platform generate
+platform active {paper_synth_top}
+platform config -updatehw {C:/Xilinx/VivadoProjects/ece385-final-project/paperSynthesis/paper_synth_top.xsa}
+platform clean
+platform generate
+platform active {paper_synth_top}
+platform config -updatehw {C:/Xilinx/VivadoProjects/ece385-final-project/paperSynthesis/paper_synth_top.xsa}
+platform clean
+platform generate
+platform generate

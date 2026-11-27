@@ -64,10 +64,13 @@ module paper_synth_top(
     logic [31:0] midi_data;
     logic midi_toggle_previous, midi_toggle;
     logic midi_valid;
-    logic [15:0] audio_sig;
+    logic [15:0] audio_hold;
+    
+    logic req_toggle;
+    logic ack_toggle;
     
 //    logic [31:0] keycode0_gpio, keycode1_gpio;
-    logic clk_25MHz, clk_125MHz, clk_24MHz, clk_12MHz, clk_6MHz, clk_3MHz;
+    logic clk_25MHz, clk_125MHz, clk_12MHz;
     logic locked;
     logic [9:0] drawX, drawY;
     logic [31:0] ch0, ch1;
@@ -112,7 +115,7 @@ module paper_synth_top(
         .hex_grid(hex_gridB)
     );
     
-//    assign led_o = audio_sig;
+//    assign led_o = audio_hold;
     logic midi_seen;
     logic [7:0] midi_event_count;
     
@@ -126,7 +129,6 @@ module paper_synth_top(
         end
     end
     
-    // Temporarily replace: assign led_o = audio_sig;
     assign led_o = {
         6'b0,
         midi_toggle,
@@ -157,24 +159,11 @@ module paper_synth_top(
     clk_wiz_0 clk_wiz (
         .clk_out1(clk_25MHz),
         .clk_out2(clk_125MHz),
-        .clk_out3(clk_24MHz), // Intended to be around 6.144MHz, actually 6.14754MHz.
+        .clk_out3(clk_12MHz), // Intended to be around 6.144MHz, actually 6.14754MHz.
         .reset(reset_ah),
         .locked(locked),
-        .clk_in1(Clk)
+        .clk_in1(Clk) //Sync with MicroBlaze peripheral clock
     );
-    
-    // Simple 1/2 frequency divider
-    logic [2:0] clk_count;
-    always_ff @(posedge clk_24MHz or posedge reset_ah) begin
-        if (reset_ah)
-            clk_count <= 3'b0;
-        else
-            clk_count <= clk_count + 3'b1;
-    end
-    
-    assign clk_12MHz = clk_count[0];
-    assign clk_6MHz = clk_count[1];
-    assign clk_3MHz = clk_count[2];
     
     oscillator_bank #(
         .NUM_OSCILLATORS(8)
@@ -184,11 +173,13 @@ module paper_synth_top(
         .sw(sw_i),
         .midi_data(midi_data),
         .midi_valid(midi_valid),
+        .req_toggle(req_toggle),
         
-        .audio_sig(audio_sig)
+        .audio_hold(audio_hold),
+        .ack_toggle(ack_toggle)
     );
     
-    assign ch0 = {{2{audio_sig[15]}}, audio_sig, 14'b0};
+    assign ch0 = {{2{audio_hold[15]}}, audio_hold, 14'b0};
     assign ch1 = ch0;
     
     audio_interface audio (
@@ -196,11 +187,12 @@ module paper_synth_top(
         .reset(reset_ah),
         .ch0(ch0), // Left channel
         .ch1(ch1), // Right channel
+        .ack_toggle(ack_toggle),
         
         .S_BCK(S_BCK),
         .S_DIN(S_DIN),
         .S_LRCK(S_LRCK),
-        .sample_en(sample_en)
+        .req_toggle(req_toggle)
     );
     
     //VGA Sync signal generator

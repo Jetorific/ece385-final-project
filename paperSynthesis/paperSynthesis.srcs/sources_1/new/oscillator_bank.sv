@@ -28,8 +28,10 @@ module oscillator_bank #(
     input logic [15:0] sw,
     input logic [31:0] midi_data,
     input logic midi_valid, // High for one clock cycle when new valid midi_data is first valid
+    input logic req_toggle, // Toggled when audio interface requests a sample
     
-    output logic signed [15:0] audio_sig
+    output logic signed [15:0] audio_hold,
+    output logic ack_toggle // Toggled when there is a valid sample for the audio interface
 );
     // Requires NUM_OSCILLATORS >= 1.
     localparam int NUM_OSC_LOG2 = $clog2(NUM_OSCILLATORS);
@@ -111,6 +113,31 @@ module oscillator_bank #(
         end
     end
     
+    logic match_found_q, note_on_event_q, note_off_event_q;
+    logic incoming_note_q, incoming_velocity_q, incoming_channel_q;
+    logic [NUM_OSC_LOG2-1:0] match_index_q;
+    
+    // Pipelining match_found, match_index, note_on_event, note_off_event,
+    //   incoming_note, incoming_velocity, incoming_channel
+    always_ff @(posedge Clk) begin
+        if (reset) begin
+            match_found_q <= 1'b0;
+            note_on_event_q <= 1'b0;
+            note_off_event_q <= 1'b0;
+            match_index_q <= 'b0;
+        end else begin
+            match_found_q <= match_found;
+            note_on_event_q <= note_on_event;
+            note_off_event_q <= note_off_event;
+            match_index_q <= match_index;
+        end
+        
+        // Nothing uses these until a MIDI message comes through
+        incoming_note_q     <= incoming_note;
+        incoming_velocity_q <= incoming_velocity;
+        incoming_channel_q  <= incoming_channel;
+    end
+    
     // freelist logic
     logic allocate_request;
     logic free_request;
@@ -125,15 +152,15 @@ module oscillator_bank #(
     always_comb begin
         // freelist drivers
         allocate_request =
-            note_on_event &&
-            !match_found;
+            note_on_event_q &&
+            !match_found_q;
         update_existing_request =
-            note_on_event &&
-            match_found;
+            note_on_event_q &&
+            match_found_q;
         free_request =
-            note_off_event &&
-            match_found;
-        freelist_freethis = match_index;
+            note_off_event_q &&
+            match_found_q;
+        freelist_freethis = match_index_q;
         
         // Helper variables
         freelist_previous = freelist_prev[freelist_freethis];
@@ -157,44 +184,22 @@ module oscillator_bank #(
                 freelist_prev[i] <= (i == 'b0) ? (NUM_OSCILLATORS-1) : (i-1);
             end
         end else begin
-//        USE OSCILLATOR PYTHON CODE
-//            oscillator_index = self.head
-//            oscillator = self.oscillators[oscillator_index]
-//            self.head = oscillator.next
-//            oscillator.free = False
             if (allocate_request) begin
-                freelist_free[freelist_head] <= 1'b0;
-                freelist_head <= freelist_next[freelist_head];
-            
-//        FREE OSCILLATOR PYTHON CODE
-//            oscillator = self.oscillators[oscillator_index]
-//            previous = oscillator.prev
-//            following = oscillator.next
-    
-//            self.oscillators[previous].next = following
-//            self.oscillators[following].prev = previous
-    
-//            old_head = following if oscillator_index == self.head else self.head
-//            previous = self.oscillators[old_head].prev
-//            self.oscillators[previous].next = oscillator_index
-//            oscillator.prev = previous
-//            oscillator.next = old_head
-//            self.oscillators[old_head].prev = oscillator_index
-//            self.head = oscillator_index
-//            oscillator.free = True
+                freelist_free[freelist_head] <= 1'b0;                       // Allocate oscillator at head
+                freelist_head <= freelist_next[freelist_head];              // Move head to next free oscillator
             end else if (free_request) begin
                 // Unlink the selected node
-                freelist_next[freelist_previous] <= freelist_following;
-                freelist_prev[freelist_following] <= freelist_previous;
+                freelist_next[freelist_previous] <= freelist_following;     // Update previous oscillator's next
+                freelist_prev[freelist_following] <= freelist_previous;     // Update next oscillators prev
                 
                 // Insert it before oldhead
-                freelist_next[freelist_previous2] <= freelist_freethis;
-                freelist_prev[freelist_freethis] <= freelist_previous2;
-                freelist_next[freelist_freethis] <= freelist_oldhead;
-                freelist_prev[freelist_oldhead] <= freelist_freethis;
+                freelist_next[freelist_previous2] <= freelist_freethis;     // Update previous2's next to newly freed oscillator
+                freelist_prev[freelist_freethis] <= freelist_previous2;     // Update newly freed oscillator's prev to previous2
+                freelist_next[freelist_freethis] <= freelist_oldhead;       // Update newly freed oscillator's next to oldhead
+                freelist_prev[freelist_oldhead] <= freelist_freethis;       // Update oldhead's prev to newly freed oscillator
                 
-                freelist_head <= freelist_freethis;
-                freelist_free[freelist_freethis] <= 1'b1;
+                freelist_head <= freelist_freethis;                         // Head moves to newly freed oscillator
+                freelist_free[freelist_freethis] <= 1'b1;                   // Free oscillator
             end
         end
     end
@@ -210,15 +215,15 @@ module oscillator_bank #(
     
         end else begin
             if (allocate_request) begin
-                voice_note[freelist_head]     <= incoming_note;
-                voice_velocity[freelist_head] <= incoming_velocity;
-                voice_channel[freelist_head]  <= incoming_channel;
+                voice_note[freelist_head]     <= incoming_note_q;
+                voice_velocity[freelist_head] <= incoming_velocity_q;
+                voice_channel[freelist_head]  <= incoming_channel_q;
     
             end else if (update_existing_request) begin
-                voice_velocity[match_index] <= incoming_velocity;
+                voice_velocity[match_index_q] <= incoming_velocity_q;
     
             end else if (free_request) begin
-                voice_velocity[match_index] <= 8'h00;
+                voice_velocity[match_index_q] <= 8'h00;
             end
         end
     end
@@ -265,5 +270,18 @@ module oscillator_bank #(
     end
     
     assign audio_sig = mix_scaled[15:0];
+    
+    logic [15:0] audio_mix_q;          // registered mixed sample
+    logic [15:0] audio_hold;           // stable value for the audio side
+    (* ASYNC_REG = "TRUE" *) logic [2:0] req_sync; // Prevent unwanted optimizations for the CDC (Clock Domain Crossing)
+    
+    always_ff @(posedge Clk) begin
+        audio_mix_q <= audio_sig;              // optionally pipeline further
+        req_sync    <= {req_sync[1:0], req_toggle};   // req_toggle from audio domain. May be metastable, so req_sync[1] has the settled value and req_sync[2] has the previous settled value.
+        if (req_sync[2] ^ req_sync[1]) begin
+            audio_hold <= audio_mix_q;
+            ack_toggle <= ~ack_toggle;
+        end
+    end
 
 endmodule
