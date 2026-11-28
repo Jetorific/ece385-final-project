@@ -45,12 +45,23 @@ module audio_interface(
 
     assign next_counter = counter - 1;
     assign lrck = next_counter[5];
-
+    
+    // Fix for async reset path timing issues
+    logic reset_bck;
+    xpm_cdc_async_rst #(
+        .DEST_SYNC_FF(4),
+        .RST_ACTIVE_HIGH(1)
+    ) reset_sync (
+        .src_arst  (reset),
+        .dest_clk  (bck),
+        .dest_arst (reset_bck)
+    );
+    
     // Request a new sample mid-frame so it arrives well before the boundary
     assign sample_request = (counter == 6'd32);
 
-    always_ff @(negedge bck or posedge reset) begin
-        if (reset) begin
+    always_ff @(negedge bck or posedge reset_bck) begin
+        if (reset_bck) begin
             counter     <= 6'd63;
             req_toggle  <= 1'b0;
             ack_sync    <= 2'b00;
